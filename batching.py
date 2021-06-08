@@ -67,7 +67,7 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
             player_data = dict(zip(hiscores_skills + hiscores_minigames, player_data))
 
             # if their total isn't ranked, let's calculate and update it
-            manual_total = sum([int(player_data[skill]) for skill in hiscores_skills[1:]])
+            manual_total = sum([int(player_data[skill]) for skill in hiscores_skills[1:] if int(player_data[skill]) != -1])
             if manual_total > int(player_data['total']):
                 logger.debug(f"{worker_name}: manually updated total xp")
                 player_data['total'] = str(manual_total)
@@ -90,7 +90,7 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
             return await runemetrics_lookup(proxy=proxy, username=username, session=session, worker_name=worker_name)
         elif response.status == 502:
             logger.warning(f"{worker_name}: 502 proxy error")
-        elif response.status == 504: 
+        elif response.status == 504:
             logger.warning(f"{worker_name}: 504 from hiscores")
         else:
             logger.error(f"{worker_name}: unhandled status code {response.status} from hiscores_lookup().  header: {response.headers}  body: {await response.text()}")
@@ -106,27 +106,24 @@ async def runemetrics_lookup(username, proxy, session, worker_name):
     session: aiohttp.ClientSession() object to use
     worker_name: the name of the task
     """
-    logging.debug(f'{worker_name}: performing runemetrics lookup on {username}')
-    async with session.get(url=f'https://apps.runescape.com/runemetrics/profile/profile?user={username}', proxy=proxy) as response:
+
+    logging.debug(f"{worker_name}: performing runemetrics lookup on {username['name']}")
+    async with session.get(url=f"https://apps.runescape.com/runemetrics/profile/profile?user={username['name']}", proxy=proxy) as response:
         if response.status == 200:
             logging.debug(f"{worker_name}: found {username['name']} on runemetrics")
             if 'error' in await response.json():
                 error = (await response.json())['error']
                 if error == 'NO_PROFILE':
-                    username['possible_ban'] = 1 # username is not associated to an account
-                    return username
+                    username['label_jagex'] = 1 # username is not associated to an account
                 elif error == 'NOT_A_MEMBER':
-                    username['confirmed_ban'] = 1 # account was perm banned
-                    return username
+                    username['label_jagex'] = 2 # account was perm banned
                 elif error == 'PROFILE_PRIVATE':
                     # runemetrics is set to private.  either they're too low level or they're banned.
-                    username['possible_ban'] = 1
-                    return username
+                    username['label_jagex'] = 3
             else:
                 # account is active, probably just too low stats for hiscores
-                username['possible_ban'] = 0
-                username['confirmed_ban'] = 0
-                return username
+                username['label_jagex'] = 0
+            return username
         elif response.status == 502:
             logger.warning(f"{worker_name}: 502 proxy error")
         elif response.status == 504:
@@ -144,7 +141,8 @@ async def create_worker(proxy, session, worker_name):
     name: the name of the worker.  Used for logging/debugging
     """
     # log only the proxy's ip and port
-    logger.debug(f'{worker_name}: Starting worker using proxy http://{re.search("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,6}", proxy)[0]}')
+    _proxy_obfuscated = re.search('\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,6}', proxy)[0]
+    logger.debug(f"{worker_name}: Starting worker using proxy http://{_proxy_obfuscated}")
     while True:
         try:
             # pop a username to work on
@@ -201,10 +199,15 @@ async def main():
 
             # post the results to the api
             logging.info(f'posting {len(results)} results to the api')
-            async with session.post(url=f"https://www.osrsbotdetector.com/scraper/hiscores/{os.getenv('TOKEN')}", json=results) as response:
-                # TODO verify upload successful else log
-                usernames = []
-                results = []
+            async with session.post(url=f"https://www.osrsbotdetector.com/dev/scraper/hiscores/{os.getenv('TOKEN')}", json=results) as response:
+                logger.info(f'uploading {len(results)} scraped usernames to api')
+                if response.status == 200:
+                    logger.debug(f'successfully uploaded')
+                else:
+                    logger.error(f'error uploading.  status code: {response.status}  body: {await response.text()}')
+            # reset input/output
+            usernames = []
+            results = []
 
 
 logger.info('Scraper starting')
