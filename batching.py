@@ -193,7 +193,7 @@ async def main():
             # create workers
             logger.info('starting workers')
             tasks = [asyncio.create_task(create_worker(
-                proxy=value, session=session, worker_name=f'worker_{key+1}'), name=f'worker_{key+1}') for key, value in enumerate(proxies)]
+                proxy=value, session=session, worker_name=f'worker_{str(key+1).rjust(len(str(len(proxies))), "0")}'), name=f'worker_{str(key+1).rjust(len(str(len(proxies))), "0")}') for key, value in enumerate(proxies)]
             await asyncio.gather(*tasks)
             logger.info('all workers stopped')
 
