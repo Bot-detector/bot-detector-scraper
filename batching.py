@@ -1,23 +1,25 @@
-import re
 import asyncio
 import logging
 import os
+import re
 import time
-from logging.handlers import RotatingFileHandler
 
+import logging_loki
 from aiohttp import ClientSession
 from dotenv import load_dotenv
 
 from input_lists import hiscores_minigames, hiscores_skills
 
 # setup logging
+loki_handler = logging_loki.LokiHandler(
+    url="http://loki:3100/loki/api/v1/push", 
+    tags={"host": "scraper"},
+    #auth=("username", "password"),
+    version="1",
+)
 logger = logging.getLogger()
-rotating_file_handler = RotatingFileHandler('scraper.log', maxBytes=1073741824, backupCount=0)  # 1GB
-formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
-rotating_file_handler.setFormatter(formatter)
-logger.addHandler(rotating_file_handler)
+logger.addHandler(loki_handler)
 logger.setLevel(logging.DEBUG)
-
 
 load_dotenv()
 
