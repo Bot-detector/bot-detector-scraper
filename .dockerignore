@@ -2,3 +2,8 @@
 .vscode
 __pycache__
 venv
+.env.example
+.gitignore
+Dockerfile
+LICENSE
+README.md
