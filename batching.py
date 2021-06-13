@@ -58,7 +58,7 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
     session: aiohttp.ClientSession() object to use
     worker_name: the name of the task
     """
-    logger.debug(f"{worker_name}: performing hiscores lookup on {username['name']}")
+    logger.debug(f"performing hiscores lookup on {username['name']}", extra={"tags": {"worker": worker_name}})
     async with session.get(url=f"https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws?player={username['name']}", proxy=proxy) as response:
         if response.status == 200:
             logger.debug(f"found {username['name']} on hiscores", extra={"tags": {"worker": worker_name}})
@@ -107,7 +107,7 @@ async def runemetrics_lookup(username, proxy, session, worker_name):
     worker_name: the name of the task
     """
 
-    logger.debug(f"{worker_name}: performing runemetrics lookup on {username['name']}")
+    logger.debug(f"performing runemetrics lookup on {username['name']}", extra={"tags": {"worker": worker_name}})
     async with session.get(url=f"https://apps.runescape.com/runemetrics/profile/profile?user={username['name']}", proxy=proxy) as response:
         if response.status == 200:
             logger.debug(f"found {username['name']} on runemetrics", extra={"tags": {"worker": worker_name}})
