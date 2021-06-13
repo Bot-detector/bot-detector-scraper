@@ -44,13 +44,10 @@ async def get_proxy_list(session):
             proxies = [f'http://{proxy[2]}:{proxy[3]}@{proxy[0]}:{proxy[1]}' for proxy in proxies]
             return proxies
         else:
-            # by returning a blank list we'll be skipping the creation of any workers
-            # effectively the loop will exit and we'll end up running this function again
             logger.error('error fetching proxy list')
             logger.error(f'response status {response.status}')
             logger.error(f'response body: {await response.text()}')
-            await asyncio.sleep(60)  # to help with endless looping
-            return []
+            raise Exception('error fetching proxy list')
 
 
 async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_name: str):
@@ -173,6 +170,12 @@ async def main():
     usernames = []
     results = []
 
+    # get proxy list
+    logger.info(f'fetching proxy list')
+    async with ClientSession() as session:
+        proxies = await get_proxy_list(session=session)
+        logger.info(f'fetched {len(proxies)} proxies')
+
     while True:
         async with ClientSession() as session:
             # get usernames to query
@@ -188,10 +191,6 @@ async def main():
                 else:
                     logger.info(f'no usernames to query.  sleeping 60s')
                     await asyncio.sleep(60)                
-
-            # get proxy list
-            proxies = await get_proxy_list(session=session)
-            logger.info(f'fetched {len(proxies)} proxies')
 
             # create workers
             logger.info('starting workers')
