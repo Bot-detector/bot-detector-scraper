@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import time
+from multiprocessing import Queue
 
 import logging_loki
 from aiohttp import ClientSession
@@ -11,15 +12,16 @@ from dotenv import load_dotenv
 from input_lists import hiscores_minigames, hiscores_skills
 
 # setup logging
-loki_handler = logging_loki.LokiHandler(
+loki_handler = logging_loki.LokiQueueHandler(
+    Queue(-1),
     url="http://loki:3100/loki/api/v1/push", 
     tags={"service": "scraper_continuous"},
-    #auth=("username", "password"),
-    version="1",
 )
 logger = logging.getLogger()
 logger.addHandler(loki_handler)
 logger.setLevel(logging.DEBUG)
+# loki uses urllib3 to ship the logs to the DB.  And urllib 3 has debug level messages every time it
+# opens a connection, which causes a circular loop.  so this is a simple hack to avoid the problem
 logging.getLogger('urllib3').setLevel(logging.INFO)
 
 load_dotenv()

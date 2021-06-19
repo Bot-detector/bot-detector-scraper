@@ -12,7 +12,7 @@ multidict==5.1.0
 pycares==4.0.0
 pycparser==2.20
 python-dotenv==0.17.1
-python-logging-loki==0.3.1
+git+https://github.com/TheRealNoob/python-logging-loki.git@master
 requests==2.25.1
 rfc3339==6.2
 typing-extensions==3.10.0.0
