@@ -4,7 +4,7 @@ import os
 import re
 import time
 from multiprocessing import Queue
-
+import sys
 import logging_loki
 from aiohttp import ClientSession
 from dotenv import load_dotenv
@@ -12,13 +12,24 @@ from dotenv import load_dotenv
 from input_lists import hiscores_minigames, hiscores_skills
 
 # setup logging
-loki_handler = logging_loki.LokiQueueHandler(
-    Queue(-1),
-    url="http://loki:3100/loki/api/v1/push", 
-    tags={"service": "scraper_continuous"},
-)
+# loki_handler = logging_loki.LokiQueueHandler(
+#     Queue(-1),
+#     url="http://loki:3100/loki/api/v1/push", 
+#     tags={"service": "scraper_continuous"},
+# )
 logger = logging.getLogger()
-logger.addHandler(loki_handler)
+
+logging.FileHandler(filename="scraper.log", mode='a')
+logging.basicConfig(filename='scraper.log', level=logging.DEBUG)
+
+
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+# logger.addHandler(loki_handler)
 logger.setLevel(logging.DEBUG)
 # loki uses urllib3 to ship the logs to the DB.  And urllib 3 has debug level messages every time it
 # opens a connection, which causes a circular loop.  so this is a simple hack to avoid the problem
@@ -44,6 +55,7 @@ async def get_proxy_list(session):
         if response.status == 200:
             proxies = [proxy.split(':') for proxy in (await response.text()).splitlines()]
             proxies = [f'http://{proxy[2]}:{proxy[3]}@{proxy[0]}:{proxy[1]}' for proxy in proxies]
+            logger.info(proxies)
             return proxies
         else:
             logger.error('error fetching proxy list')
@@ -61,7 +73,9 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
     worker_name: the name of the task
     """
     logger.debug(f"performing hiscores lookup on {username['name']}", extra={"tags": {"worker": worker_name}})
+    logger.debug(f"https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws?player={username['name']} proxy={proxy}")
     async with session.get(url=f"https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws?player={username['name']}", proxy=proxy) as response:
+        logger.debug(response.text())
         if response.status == 200:
             logger.debug(f"found {username['name']} on hiscores", extra={"tags": {"worker": worker_name}})
             # serialize the data
