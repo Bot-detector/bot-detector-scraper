@@ -2,9 +2,10 @@ import asyncio
 import logging
 import os
 import re
+import sys
 import time
 from multiprocessing import Queue
-import sys
+
 import logging_loki
 from aiohttp import ClientSession
 from dotenv import load_dotenv
@@ -14,7 +15,7 @@ from input_lists import hiscores_minigames, hiscores_skills
 # setup logging
 # loki_handler = logging_loki.LokiQueueHandler(
 #     Queue(-1),
-#     url="http://loki:3100/loki/api/v1/push", 
+#     url="http://loki:3100/loki/api/v1/push",
 #     tags={"service": "scraper_continuous"},
 # )
 logger = logging.getLogger()
@@ -24,7 +25,8 @@ logging.basicConfig(filename='scraper.log', level=logging.DEBUG)
 
 
 handler = logging.StreamHandler(sys.stdout)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 handler.setFormatter(formatter)
 logger.addHandler(handler)
@@ -54,7 +56,8 @@ async def get_proxy_list(session):
     async with session.get(os.getenv('PROXY_DOWNLOAD_URL')) as response:
         if response.status == 200:
             proxies = [proxy.split(':') for proxy in (await response.text()).splitlines()]
-            proxies = [f'http://{proxy[2]}:{proxy[3]}@{proxy[0]}:{proxy[1]}' for proxy in proxies]
+            proxies = [
+                f'http://{proxy[2]}:{proxy[3]}@{proxy[0]}:{proxy[1]}' for proxy in proxies]
             logger.info(proxies)
             return proxies
         else:
@@ -72,46 +75,53 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
     session: aiohttp.ClientSession() object to use
     worker_name: the name of the task
     """
-    logger.debug(f"performing hiscores lookup on {username['name']}", extra={"tags": {"worker": worker_name}})
-    logger.debug(f"https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws?player={username['name']} proxy={proxy}")
+    logger.debug(f"performing hiscores lookup on {username['name']}", extra={ "tags": {"worker": worker_name}})
     async with session.get(url=f"https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws?player={username['name']}", proxy=proxy) as response:
         logger.debug(response.text())
         if response.status == 200:
-            logger.debug(f"found {username['name']} on hiscores", extra={"tags": {"worker": worker_name}})
+            logger.debug(f"found {username['name']} on hiscores", extra={
+                         "tags": {"worker": worker_name}})
             # serialize the data
             player_data = [x.split(',')[-1] for x in (await response.text()).split('\n')]
-            player_data = dict(zip(hiscores_skills + hiscores_minigames, player_data))
+            player_data = dict(
+                zip(hiscores_skills + hiscores_minigames, player_data))
 
             # if their total isn't ranked, let's calculate and update it
-            manual_total = sum([int(player_data[skill]) for skill in hiscores_skills[1:] if int(player_data[skill]) != -1])
+            manual_total = sum([int(player_data[skill])
+                               for skill in hiscores_skills[1:] if int(player_data[skill]) != -1])
             if manual_total > int(player_data['total']):
-                logger.debug("manually updated total xp", extra={"tags": {"worker": worker_name}})
+                logger.debug("manually updated total xp", extra={
+                             "tags": {"worker": worker_name}})
                 player_data['total'] = str(manual_total)
 
             # recast every value from str to int
-            player_data = {key: int(value) for key, value in player_data.items()}
+            player_data = {key: int(value)
+                           for key, value in player_data.items()}
 
             # update additional metadata and stash player_data
             username['possible_ban'] = 0
             username['confirmed_ban'] = 0
-            username['updated_at'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
+            username['updated_at'] = time.strftime(
+                '%Y-%m-%d %H:%M:%S', time.gmtime())
             username['hiscores'] = player_data
             return username
         elif response.status == 404:
-            logger.debug(f"{username['name']} does not exist on hiscores.  trying runemetrics", extra={"tags": {"worker": worker_name}})
+            logger.debug(f"{username['name']} does not exist on hiscores.  trying runemetrics", extra={
+                         "tags": {"worker": worker_name}})
             # the api expects this key to be present every time, even if no hiscores data
             username['hiscores'] = None
             # either they're too low level, the username isn't tied to an account, or the account is banned
             # runemetrics lookup to try and find out
             return await runemetrics_lookup(proxy=proxy, username=username, session=session, worker_name=worker_name)
         elif response.status == 502:
-            logger.warning("502 proxy error", extra={"tags": {"worker": worker_name}})
+            logger.warning("502 proxy error", extra={
+                           "tags": {"worker": worker_name}})
         elif response.status == 504:
-            logger.warning("504 from hiscores", extra={"tags": {"worker": worker_name}})
+            logger.warning("504 from hiscores", extra={
+                           "tags": {"worker": worker_name}})
         else:
             logger.error(f"unhandled status code {response.status} from hiscores_lookup().  header: {response.headers}  body: {await response.text()}", extra={"tags": {"worker": worker_name}})
         raise SkipUsername()
-
 
 
 async def runemetrics_lookup(username, proxy, session, worker_name):
@@ -126,13 +136,15 @@ async def runemetrics_lookup(username, proxy, session, worker_name):
     logger.debug(f"performing runemetrics lookup on {username['name']}", extra={"tags": {"worker": worker_name}})
     async with session.get(url=f"https://apps.runescape.com/runemetrics/profile/profile?user={username['name']}", proxy=proxy) as response:
         if response.status == 200:
-            logger.debug(f"found {username['name']} on runemetrics", extra={"tags": {"worker": worker_name}})
+            logger.debug(f"found {username['name']} on runemetrics", extra={
+                         "tags": {"worker": worker_name}})
             if 'error' in await response.json():
                 error = (await response.json())['error']
                 if error == 'NO_PROFILE':
-                    username['label_jagex'] = 1 # username is not associated to an account
+                    # username is not associated to an account
+                    username['label_jagex'] = 1
                 elif error == 'NOT_A_MEMBER':
-                    username['label_jagex'] = 2 # account was perm banned
+                    username['label_jagex'] = 2  # account was perm banned
                 elif error == 'PROFILE_PRIVATE':
                     # runemetrics is set to private.  either they're too low level or they're banned.
                     username['label_jagex'] = 3
@@ -141,9 +153,11 @@ async def runemetrics_lookup(username, proxy, session, worker_name):
                 username['label_jagex'] = 0
             return username
         elif response.status == 502:
-            logger.warning("502 proxy error", extra={"tags": {"worker": worker_name}})
+            logger.warning("502 proxy error", extra={
+                           "tags": {"worker": worker_name}})
         elif response.status == 504:
-            logger.warning("504 returned from RuneMetrics", extra={"tags": {"worker": worker_name}})
+            logger.warning("504 returned from RuneMetrics", extra={
+                           "tags": {"worker": worker_name}})
         else:
             logger.error(f"unhandled status code {response.status} from RuneMetrics.  header: {response.headers}  body: {await response.text()}", extra={"tags": {"worker": worker_name}})
         raise SkipUsername()
@@ -157,8 +171,10 @@ async def create_worker(proxy, session, worker_name):
     name: the name of the worker.  Used for logging/debugging
     """
     # log only the proxy's ip and port
-    _proxy_obfuscated = re.search('\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,6}', proxy)[0]
-    logger.debug(f"Starting worker using proxy http://{_proxy_obfuscated}", extra={"tags": {"worker": worker_name}})
+    _proxy_obfuscated = re.search(
+        '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,6}', proxy)[0]
+    logger.debug(f"Starting worker using proxy http://{_proxy_obfuscated}", extra={
+                 "tags": {"worker": worker_name}})
     while True:
         try:
             # pop a username to work on
@@ -169,14 +185,16 @@ async def create_worker(proxy, session, worker_name):
 
             await asyncio.sleep(6)
         except IndexError:
-            logger.debug("No usernames left to scrape.  stopping", extra={"tags": {"worker": worker_name}})
+            logger.debug("No usernames left to scrape.  stopping",
+                         extra={"tags": {"worker": worker_name}})
             break
         except SkipUsername:
             # push username for another worker to pick up
             usernames.append(username)
             await asyncio.sleep(6)
         except Exception as e:
-            logger.error(f"unhandled exception while looking up {username['name']}: {e}", extra={"tags": {"worker": worker_name}})
+            logger.error(f"unhandled exception while looking up {username['name']}: {e}", extra={
+                         "tags": {"worker": worker_name}})
 
 
 async def main():
@@ -188,12 +206,14 @@ async def main():
 
     # get proxy list
     logger.info(f'fetching proxy list')
-    async with ClientSession() as session:
+    # from https://stackoverflow.com/questions/63347818/aiohttp-client-exceptions-clientconnectorerror-cannot-connect-to-host-stackover
+    async with ClientSession(trust_env=True) as session:
         proxies = await get_proxy_list(session=session)
         logger.info(f'fetched {len(proxies)} proxies')
 
     while True:
-        async with ClientSession() as session:
+        # from https://stackoverflow.com/questions/63347818/aiohttp-client-exceptions-clientconnectorerror-cannot-connect-to-host-stackover
+        async with ClientSession(trust_env=True) as session:
             # get usernames to query
             logger.info('getting usernames to query')
             async with session.get(f"https://www.osrsbotdetector.com/dev/scraper/players/0/{os.getenv('QUERY_SIZE')}/{os.getenv('TOKEN')}") as response:
@@ -206,7 +226,7 @@ async def main():
                     logger.info(f'added {len(usernames)} usernames to queue')
                 else:
                     logger.info(f'no usernames to query.  sleeping 60s')
-                    await asyncio.sleep(60)                
+                    await asyncio.sleep(60)
 
             # create workers
             logger.info('starting workers')
@@ -218,7 +238,8 @@ async def main():
             # post the results to the api
             logger.info(f'posting {len(results)} results to the api')
             async with session.post(url=f"https://www.osrsbotdetector.com/dev/scraper/hiscores/{os.getenv('TOKEN')}", json=results) as response:
-                logger.info(f'uploading {len(results)} scraped usernames to api')
+                logger.info(
+                    f'uploading {len(results)} scraped usernames to api')
                 if response.status == 200:
                     logger.debug(f'successfully uploaded')
                 else:
@@ -227,6 +248,16 @@ async def main():
             usernames = []
             results = []
 
+
+# from https://stackoverflow.com/questions/63347818/aiohttp-client-exceptions-clientconnectorerror-cannot-connect-to-host-stackover
+if (1 == 1
+        and sys.platform.startswith('win')
+        and sys.version_info[0] == 3
+        and sys.version_info[1] >= 8
+    ):
+    logger.info('Set policy')
+    policy = asyncio.WindowsSelectorEventLoopPolicy()
+    asyncio.set_event_loop_policy(policy)
 
 logger.info('Scraper starting')
 asyncio.run(main())
