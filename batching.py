@@ -57,8 +57,8 @@ async def get_proxy_list(session):
         if response.status == 200:
             proxies = [proxy.split(':') for proxy in (await response.text()).splitlines()]
             proxies = [
-                f'http://{proxy[2]}:{proxy[3]}@{proxy[0]}:{proxy[1]}' for proxy in proxies]
-            logger.info(proxies)
+                f'http://{proxy[2]}:{proxy[3]}@{proxy[0]}:{proxy[1]}' for proxy in proxies
+            ]
             return proxies
         else:
             logger.error('error fetching proxy list')
