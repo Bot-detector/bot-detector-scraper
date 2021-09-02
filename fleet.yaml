@@ -5,7 +5,7 @@ metadata:
   name: bot-detector-scraper
   # For single cluster use fleet-local, otherwise use the namespace of
   # your choosing
-  namespace: fleet-default
+  namespace: fleet-local
 spec:
   # This can be a HTTPS or git URL.  If you are using a git URL then
   # clientSecretName will probably need to be set to supply a credential.
