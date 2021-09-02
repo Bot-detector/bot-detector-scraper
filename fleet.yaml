@@ -14,3 +14,4 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: scraper
+EOF
