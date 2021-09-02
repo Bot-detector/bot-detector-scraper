@@ -7,3 +7,10 @@ spec:
   repo: https://github.com/Bot-detector/bot-detector-scraper
   paths:
   - simple
+services:
+  scraper:
+    image: scraper:dockerfile
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: scraper
