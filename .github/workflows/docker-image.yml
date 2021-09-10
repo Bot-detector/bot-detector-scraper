@@ -1,0 +1,31 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set Up ENV
+      run: |
+          echo "${{ secrets.API_TOKEN }}" > .env
+          echo "${{ secrets.ENDPOINT }}" >> .env
+          echo "${{ secrets.PROXY_DOWNLOAD_URL }}" >> .env
+          echo "${{ secrets.QUERY_SIZE }}" >> .env
+    
+    - name: Build the Docker image
+      run: |
+        docker build . --file Dockerfile -t bd-scraper:latest
+        docker save bd-scraper:latest > bd-scraper.tar
+        microk8s ctr image import bd-scraper.tar
+      
+    - name: Deploy Image
+      run: microk8s kubectl -f deployment.yaml
