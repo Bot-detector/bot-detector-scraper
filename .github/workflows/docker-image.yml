@@ -31,4 +31,4 @@ jobs:
       run: microk8s ctr image import bd-scraper.tar
 
     - name: Deploy Image
-      run: microk8s kubectl -f deployment.yaml
+      run: microk8s kubectl apply -f deployment.yaml
