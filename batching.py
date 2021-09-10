@@ -78,7 +78,7 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
     logger.debug(f"performing hiscores lookup on {username['name']}", extra={ "tags": {"worker": worker_name}})
     async with session.get(url=f"https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws?player={username['name']}", proxy=proxy) as response:
         if response.status == 200:
-            logger.debug(f"found {username['name']} on hiscores", extra={"tags": {"worker": worker_name}})
+            #logger.debug(f"found {username['name']} on hiscores", extra={"tags": {"worker": worker_name}})
             # serialize the data
             player_data = [x.split(',')[-1] for x in (await response.text()).split('\n')]
             player_data = dict(
@@ -131,7 +131,7 @@ async def runemetrics_lookup(username, proxy, session, worker_name):
     worker_name: the name of the task
     """
 
-    logger.debug(f"performing runemetrics lookup on {username['name']}", extra={"tags": {"worker": worker_name}})
+    #logger.debug(f"performing runemetrics lookup on {username['name']}", extra={"tags": {"worker": worker_name}})
     async with session.get(url=f"https://apps.runescape.com/runemetrics/profile/profile?user={username['name']}", proxy=proxy) as response:
         if response.status == 200:
             logger.debug(f"found {username['name']} on runemetrics", extra={"tags": {"worker": worker_name}})
@@ -210,6 +210,7 @@ async def main():
             logger.info('getting usernames to query')
             async with session.get(f"{os.getenv('endpoint')}/scraper/players/0/{os.getenv('QUERY_SIZE')}/{os.getenv('TOKEN')}") as response:
                 usernames = await response.json()
+
                 if len(usernames) > 0:
                     # the api gives us the list in ORDER BY updated_at DESC
                     # when we pop() a name, it pops from the end, so if we want
@@ -229,6 +230,7 @@ async def main():
 
             # post the results to the api
             logger.info(f'posting {len(results)} results to the api')
+            print(f'posting {len(results)} results to the api')
             async with session.post(url=f"{os.getenv('endpoint')}/scraper/hiscores/{os.getenv('TOKEN')}", json=results) as response:
                 logger.info(
                     f'uploading {len(results)} scraped usernames to api')
