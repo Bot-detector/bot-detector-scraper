@@ -22,10 +22,13 @@ jobs:
           echo "${{ secrets.QUERY_SIZE }}" >> .env
     
     - name: Build the Docker image
-      run: |
-        docker build . --file Dockerfile -t bd-scraper:latest
-        docker save bd-scraper:latest > bd-scraper.tar
-        microk8s ctr image import bd-scraper.tar
+      run: docker build . --file Dockerfile -t bd-scraper:latest
       
+    - name: Save the Docker image
+      run: docker save bd-scraper:latest > bd-scraper.tar
+      
+    - name: Import image to microk8s
+      run: microk8s ctr image import bd-scraper.tar
+
     - name: Deploy Image
       run: microk8s kubectl -f deployment.yaml
