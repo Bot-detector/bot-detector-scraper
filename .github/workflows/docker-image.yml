@@ -31,4 +31,4 @@ jobs:
       run: echo "${{ secrets.DOCKER_REGISTRY_PASSWORD }}" | docker login https://hub.osrsbotdetector.com -u "${{ secrets.DOCKER_REGISTRY_USERNAME }}" --password-stdin
 
     - name: Push Image to Registry
-      run: docker push bot-detector/bd-scraper:latest
+      run: docker push hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
