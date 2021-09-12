@@ -25,7 +25,7 @@ jobs:
       run: docker build . --file Dockerfile -t bot-detector/bd-scraper:latest
 
     - name: Tag Image
-      run: docker tag bot-detector/bd-scraper:latest https://hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
+      run: docker tag bot-detector/bd-scraper:latest hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
       
     - name: Login to Docker Registry
       run: echo "${{ secrets.DOCKER_REGISTRY_PASSWORD }}" | docker login https://hub.osrsbotdetector.com -u "${{ secrets.DOCKER_REGISTRY_USERNAME }}" --password-stdin
