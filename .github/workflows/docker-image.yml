@@ -32,3 +32,4 @@ jobs:
 
     - name: Push Image to Registry
       run: docker push hub.osrsbotdetector.com/bd-scraper:latest
+
