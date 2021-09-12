@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
       - name: bd-scraper
-        image: bd-scraper:latest
-        imagePullPolicy: Never
+        image: hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 5000
