@@ -22,13 +22,13 @@ jobs:
           echo "${{ secrets.QUERY_SIZE }}" >> .env
     
     - name: Build the Docker image
-      run: docker build . --file Dockerfile -t bd-scraper:latest
+      run: docker build . --file Dockerfile -t hub.osrsbotdetector.com/bd-scraper:latest
 
     - name: Tag Image
-      run: docker tag bd-scraper:latest hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
+      run: docker tag bd-scraper:latest hub.osrsbotdetector.com/bd-scraper:latest
       
     - name: Login to Docker Registry
       run: echo "${{ secrets.DOCKER_REGISTRY_PASSWORD }}" | docker login https://hub.osrsbotdetector.com -u "${{ secrets.DOCKER_REGISTRY_USERNAME }}" --password-stdin
 
     - name: Push Image to Registry
-      run: docker push hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
+      run: docker push hub.osrsbotdetector.com/bd-scraper:latest
