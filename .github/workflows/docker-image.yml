@@ -22,7 +22,7 @@ jobs:
           echo "${{ secrets.QUERY_SIZE }}" >> .env
     
     - name: Build the Docker image
-      run: docker build . --file Dockerfile -t hub.osrsbotdetector.com/bd-scraper:latest
+      run: docker build . --file Dockerfile -t bd-scraper:latest
 
     - name: Tag Image
       run: docker tag bd-scraper:latest hub.osrsbotdetector.com/bd-scraper:latest
