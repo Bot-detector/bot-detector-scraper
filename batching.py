@@ -20,15 +20,14 @@ from input_lists import hiscores_minigames, hiscores_skills
 # )
 logger = logging.getLogger()
 
-logging.FileHandler(filename="scraper.log", mode='a')
-logging.basicConfig(filename='scraper.log', level=logging.DEBUG)
-
-
+file_handler = logging.FileHandler(filename="scraper.log", mode='a')
 handler = logging.StreamHandler(sys.stdout)
-formatter = logging.Formatter(
-    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 handler.setFormatter(formatter)
+file_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
 logger.addHandler(handler)
 
 # logger.addHandler(loki_handler)
@@ -67,7 +66,7 @@ async def get_proxy_list(session):
             raise Exception('error fetching proxy list')
 
 
-async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_name: str):
+async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_name: str, retry: bool = False):
     """
     looks up a username on hiscores.  returns a dict summarizing the user
     username: username object
@@ -115,8 +114,15 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
             return output
         elif response.status == 502:
             logger.warning("502 proxy error", extra={"tags": {"worker": worker_name}})
+            if not retry:
+                await asyncio.sleep(6)
+                return await hiscores_lookup(username=username, proxy=proxy, session=session, worker_name=worker_name, retry=True)
+
         elif response.status == 504:
             logger.warning("504 from hiscores", extra={"tags": {"worker": worker_name}})
+            if not retry:
+                await asyncio.sleep(6)
+                return await hiscores_lookup(username=username, proxy=proxy, session=session, worker_name=worker_name, retry=True)
         else:
             logger.error(f"unhandled status code {response.status} from hiscores_lookup().  header: {response.headers}  body: {await response.text()}", extra={"tags": {"worker": worker_name}})
         raise SkipUsername()
@@ -177,14 +183,14 @@ async def create_worker(proxy, session, worker_name):
             data = await hiscores_lookup(username=username, proxy=proxy, session=session, worker_name=worker_name)
             results.append(data)
 
-            await asyncio.sleep(6)
-        except IndexError:
+            # await asyncio.sleep(6)
+        except IndexError or TypeError:
             logger.debug("No usernames left to scrape.  stopping", extra={"tags": {"worker": worker_name}})
             break
         except SkipUsername:
             # push username for another worker to pick up
             usernames.append(username)
-            await asyncio.sleep(6)
+            # await asyncio.sleep(6)
         except Exception as e:
             logger.error(f"unhandled exception while looking up {username['name']}: {e}", extra={"tags": {"worker": worker_name}})
 
@@ -230,7 +236,6 @@ async def main():
 
             # post the results to the api
             logger.info(f'posting {len(results)} results to the api')
-            print(f'posting {len(results)} results to the api')
             async with session.post(url=f"{os.getenv('endpoint')}/scraper/hiscores/{os.getenv('TOKEN')}", json=results) as response:
                 logger.info(
                     f'uploading {len(results)} scraped usernames to api')
