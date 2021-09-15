@@ -227,26 +227,27 @@ async def main():
                     # to query the oldest name first, the list needs to be reversed
                     usernames.reverse()
                     logger.info(f'added {len(usernames)} usernames to queue')
+
+                    # create workers
+                    logger.info('starting workers')
+                    tasks = [asyncio.create_task(create_worker(
+                        proxy=value, session=session, worker_name=f'worker_{str(key+1).rjust(len(str(len(proxies))), "0")}'), name=f'worker_{str(key+1).rjust(len(str(len(proxies))), "0")}') for key, value in enumerate(proxies)]
+                    await asyncio.gather(*tasks)
+                    logger.info('all workers stopped')
+
+                    # post the results to the api
+                    logger.info(f'posting {len(results)} results to the api')
+                    async with session.post(url=f"{os.getenv('endpoint')}/scraper/hiscores/{os.getenv('TOKEN')}", json=results) as response:
+                        logger.info(
+                            f'uploading {len(results)} scraped usernames to api')
+                        if response.status == 200:
+                            logger.debug(f'successfully uploaded')
+                        else:
+                            logger.error(f'error uploading.  status code: {response.status}  body: {await response.text()}')
                 else:
                     logger.info(f'no usernames to query.  sleeping 60s')
                     await asyncio.sleep(60)
-
-            # create workers
-            logger.info('starting workers')
-            tasks = [asyncio.create_task(create_worker(
-                proxy=value, session=session, worker_name=f'worker_{str(key+1).rjust(len(str(len(proxies))), "0")}'), name=f'worker_{str(key+1).rjust(len(str(len(proxies))), "0")}') for key, value in enumerate(proxies)]
-            await asyncio.gather(*tasks)
-            logger.info('all workers stopped')
-
-            # post the results to the api
-            logger.info(f'posting {len(results)} results to the api')
-            async with session.post(url=f"{os.getenv('endpoint')}/scraper/hiscores/{os.getenv('TOKEN')}", json=results) as response:
-                logger.info(
-                    f'uploading {len(results)} scraped usernames to api')
-                if response.status == 200:
-                    logger.debug(f'successfully uploaded')
-                else:
-                    logger.error(f'error uploading.  status code: {response.status}  body: {await response.text()}')
+            
             # reset input/output
             usernames = []
             results = []
