@@ -64,7 +64,7 @@ hiscores_minigames = ["league",
                       "kril_tsutsaroth",
                       "mimic",
                       "nightmare",
-                      "	phosanis_nightmare"
+                      "phosanis_nightmare",
                       "obor",
                       "sarachnis",
                       "scorpia",
