@@ -154,6 +154,10 @@ async def runemetrics_lookup(username, proxy, session, worker_name):
             else:
                 # account is active, probably just too low stats for hiscores
                 username['label_jagex'] = 0
+            
+            #API assigns this too, but jsut being safe
+            username['updated_at'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
+
             return username
         elif response.status == 502:
             logger.warning("502 proxy error", extra={"tags": {"worker": worker_name}})
