@@ -269,15 +269,25 @@ async def main():
                         await asyncio.gather(*tasks)
                         logger.info('all workers stopped')
 
-                        # post the results to the api
-                        logger.info(f'posting {len(results)} results to the api')
-                        async with session.post(url=f"{os.getenv('endpoint')}/scraper/hiscores/{os.getenv('TOKEN')}", json=results) as response:
-                            logger.info(
-                                f'uploading {len(results)} scraped usernames to api')
-                            if response.status == 200:
-                                logger.debug(f'successfully uploaded')
-                            else:
-                                logger.error(f'error uploading.  status code: {response.status}  body: {await response.text()}')
+                        upload_attempts = 0
+                        while upload_attempts < 3:
+                            # post the results to the api
+                            try:
+                                logger.info(f'posting {len(results)} results to the api')
+                                async with session.post(url=f"{os.getenv('endpoint')}/scraper/hiscores/{os.getenv('TOKEN')}", json=results) as response:
+                                    logger.info(
+                                        f'uploading {len(results)} scraped usernames to api')
+                                    if response.status == 200:
+                                        logger.debug(f'successfully uploaded')
+                                    else:
+                                        logger.error(f'error uploading.  status code: {response.status}  body: {await response.text()}')
+
+                                    break
+                            except client_exceptions.ClientConnectorError:
+                                upload_attempts += 1
+                                logger.error(f"(Attempt {upload_attempts}/3 ) Could not connect to the API to upload hiscores data. Retrying in 30 seconds.")
+                                await asyncio.sleep(30)
+
                     else:
                         logger.info(f'no usernames to query.  sleeping 60s')
                         await asyncio.sleep(60)
