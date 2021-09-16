@@ -7,7 +7,7 @@ import time
 from multiprocessing import Queue
 
 import logging_loki
-from aiohttp import ClientSession
+from aiohttp import ClientSession, client_exceptions
 from dotenv import load_dotenv
 from discord_webhook import DiscordWebhook
 from discord_webhook.webhook import DiscordEmbed
@@ -227,7 +227,7 @@ async def fill_graveyard_plots():
 
         webhook.add_embed(embed=embed)
         webhook.execute()
-        asyncio.sleep(5) #Be mindful of the Discord rate limit
+        await asyncio.sleep(5) #Be mindful of the Discord rate limit
 
 async def main():
     # stores the usernames to scrape.  .pop() and .append() methods used by all asyncio tasks
@@ -249,37 +249,43 @@ async def main():
         # from https://stackoverflow.com/questions/63347818/aiohttp-client-exceptions-clientconnectorerror-cannot-connect-to-host-stackover
         async with ClientSession(trust_env=True) as session:
             # get usernames to query
-            logger.info('getting usernames to query')
-            async with session.get(f"{os.getenv('endpoint')}/scraper/players/0/{os.getenv('QUERY_SIZE')}/{os.getenv('TOKEN')}") as response:
-                usernames = await response.json()
+            try:
+                logger.info('getting usernames to query')
+                async with session.get(f"{os.getenv('endpoint')}/scraper/players/0/{os.getenv('QUERY_SIZE')}/{os.getenv('TOKEN')}") as response:
+                    usernames = await response.json()
 
-                if len(usernames) > 0:
-                    # the api gives us the list in ORDER BY updated_at DESC
-                    # when we pop() a name, it pops from the end, so if we want
-                    # to query the oldest name first, the list needs to be reversed
-                    usernames.reverse()
-                    logger.info(f'added {len(usernames)} usernames to queue')
+                    if len(usernames) > 0:
+                        # the api gives us the list in ORDER BY updated_at DESC
+                        # when we pop() a name, it pops from the end, so if we want
+                        # to query the oldest name first, the list needs to be reversed
+                        usernames.reverse()
+                        logger.info(f'added {len(usernames)} usernames to queue')
 
-                    # create workers
-                    logger.info('starting workers')
-                    tasks = [asyncio.create_task(create_worker(
-                        proxy=value, session=session, worker_name=f'worker_{str(key+1).rjust(len(str(len(proxies))), "0")}'), name=f'worker_{str(key+1).rjust(len(str(len(proxies))), "0")}') for key, value in enumerate(proxies)]
-                    asyncio.create_task(fill_graveyard_plots())
-                    await asyncio.gather(*tasks)
-                    logger.info('all workers stopped')
+                        # create workers
+                        logger.info('starting workers')
+                        tasks = [asyncio.create_task(create_worker(
+                            proxy=value, session=session, worker_name=f'worker_{str(key+1).rjust(len(str(len(proxies))), "0")}'), name=f'worker_{str(key+1).rjust(len(str(len(proxies))), "0")}') for key, value in enumerate(proxies)]
+                        asyncio.create_task(fill_graveyard_plots())
+                        await asyncio.gather(*tasks)
+                        logger.info('all workers stopped')
 
-                    # post the results to the api
-                    logger.info(f'posting {len(results)} results to the api')
-                    async with session.post(url=f"{os.getenv('endpoint')}/scraper/hiscores/{os.getenv('TOKEN')}", json=results) as response:
-                        logger.info(
-                            f'uploading {len(results)} scraped usernames to api')
-                        if response.status == 200:
-                            logger.debug(f'successfully uploaded')
-                        else:
-                            logger.error(f'error uploading.  status code: {response.status}  body: {await response.text()}')
-                else:
-                    logger.info(f'no usernames to query.  sleeping 60s')
-                    await asyncio.sleep(60)
+                        # post the results to the api
+                        logger.info(f'posting {len(results)} results to the api')
+                        async with session.post(url=f"{os.getenv('endpoint')}/scraper/hiscores/{os.getenv('TOKEN')}", json=results) as response:
+                            logger.info(
+                                f'uploading {len(results)} scraped usernames to api')
+                            if response.status == 200:
+                                logger.debug(f'successfully uploaded')
+                            else:
+                                logger.error(f'error uploading.  status code: {response.status}  body: {await response.text()}')
+                    else:
+                        logger.info(f'no usernames to query.  sleeping 60s')
+                        await asyncio.sleep(60)
+
+            except client_exceptions.ClientConnectorError:
+                logger.error("Scraper could not connect to the API to obtain accounts to scrape. Retrying in 60 seconds.")
+                await asyncio.sleep(60)
+
             
             # reset input/output
             usernames = []
