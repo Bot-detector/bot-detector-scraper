@@ -229,6 +229,7 @@ async def fill_graveyard_plots():
         webhook.execute()
         await asyncio.sleep(5) #Be mindful of the Discord rate limit
 
+
 async def main():
     # stores the usernames to scrape.  .pop() and .append() methods used by all asyncio tasks
     global usernames
@@ -269,9 +270,9 @@ async def main():
                         await asyncio.gather(*tasks)
                         logger.info('all workers stopped')
 
+                        #post results to api
                         upload_attempts = 0
                         while upload_attempts < 3:
-                            # post the results to the api
                             try:
                                 logger.info(f'posting {len(results)} results to the api')
                                 async with session.post(url=f"{os.getenv('endpoint')}/scraper/hiscores/{os.getenv('TOKEN')}", json=results) as response:
@@ -281,11 +282,16 @@ async def main():
                                         logger.debug(f'successfully uploaded')
                                     else:
                                         logger.error(f'error uploading.  status code: {response.status}  body: {await response.text()}')
-
                                     break
+
                             except client_exceptions.ClientConnectorError:
                                 upload_attempts += 1
                                 logger.error(f"(Attempt {upload_attempts}/3 ) Could not connect to the API to upload hiscores data. Retrying in 30 seconds.")
+                                await asyncio.sleep(30)
+
+                            except asyncio.exceptions.TimeoutError:
+                                upload_attempts += 1
+                                logger.error(f"(Attempt {upload_attempts}/3 ) Connection timed out on hiscores POST. Retrying in 30 seconds.")
                                 await asyncio.sleep(30)
 
                     else:
@@ -296,7 +302,10 @@ async def main():
                 logger.error("Scraper could not connect to the API to obtain accounts to scrape. Retrying in 60 seconds.")
                 await asyncio.sleep(60)
 
-            
+            except asyncio.exceptions.TimeoutError:
+                logger.error("Connection timed out while trying to retrieve names to scrape. Retrying in 30 seconds.")
+                await asyncio.sleep(30)
+
             # reset input/output
             usernames = []
             results = []
