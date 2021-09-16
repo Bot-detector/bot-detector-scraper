@@ -9,6 +9,8 @@ from multiprocessing import Queue
 import logging_loki
 from aiohttp import ClientSession
 from dotenv import load_dotenv
+from discord_webhook import DiscordWebhook
+from discord_webhook.webhook import DiscordEmbed
 
 from input_lists import hiscores_minigames, hiscores_skills
 
@@ -148,6 +150,7 @@ async def runemetrics_lookup(username, proxy, session, worker_name):
                     username['label_jagex'] = 1
                 elif error == 'NOT_A_MEMBER':
                     username['label_jagex'] = 2  # account was perm banned
+                    players_banned.append(username['name']) #add name to list to be broadcast in #bot-graveyard
                 elif error == 'PROFILE_PRIVATE':
                     # runemetrics is set to private.  either they're too low level or they're banned.
                     username['label_jagex'] = 3
@@ -168,7 +171,7 @@ async def runemetrics_lookup(username, proxy, session, worker_name):
         raise SkipUsername()
 
 
-async def create_worker(proxy, session, worker_name):
+async def create_worker(proxy: str, session, worker_name):
     """
     a standalone "worker".  it takes a username obj, does a lookup, and returns it
     proxy: the proxy for the worker to use
@@ -199,12 +202,41 @@ async def create_worker(proxy, session, worker_name):
             logger.error(f"unhandled exception while looking up {username['name']}: {e}", extra={"tags": {"worker": worker_name}})
 
 
+async def fill_graveyard_plots():
+    while True:
+        num_pending_players = len(players_banned)
+        # if is empty list break
+        if not players_banned:
+            logger.debug("No names to send to the graveyard.")
+            break
+        elif num_pending_players > 50:
+            broadcast_size = 50
+        else:
+            broadcast_size = num_pending_players
+            
+        players_to_broadcast = []
+        for i in range(broadcast_size):
+                players_to_broadcast.append(players_banned.pop())
+
+        webhook = DiscordWebhook(url=os.getenv('GRAVEYARD_WEBHOOK_URL'))
+        embed = DiscordEmbed(title="All Ye Bots Lose All Hope", color="000000")
+
+        embed.set_timestamp()
+        embed.add_embed_field(name="Newly Departed", value=f"{', '.join(players_to_broadcast)}")
+        embed.set_thumbnail(url="https://i.imgur.com/PPnZRHW.gif")
+
+        webhook.add_embed(embed=embed)
+        webhook.execute()
+        asyncio.sleep(5) #Be mindful of the Discord rate limit
+
 async def main():
     # stores the usernames to scrape.  .pop() and .append() methods used by all asyncio tasks
     global usernames
     global results
+    global players_banned
     usernames = []
     results = []
+    players_banned = []
 
     # get proxy list
     logger.info(f'fetching proxy list')
@@ -232,6 +264,7 @@ async def main():
                     logger.info('starting workers')
                     tasks = [asyncio.create_task(create_worker(
                         proxy=value, session=session, worker_name=f'worker_{str(key+1).rjust(len(str(len(proxies))), "0")}'), name=f'worker_{str(key+1).rjust(len(str(len(proxies))), "0")}') for key, value in enumerate(proxies)]
+                    asyncio.create_task(fill_graveyard_plots())
                     await asyncio.gather(*tasks)
                     logger.info('all workers stopped')
 
