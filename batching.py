@@ -226,8 +226,13 @@ async def fill_graveyard_plots():
         embed.set_thumbnail(url="https://i.imgur.com/PPnZRHW.gif")
 
         webhook.add_embed(embed=embed)
-        webhook.execute()
-        await asyncio.sleep(5) #Be mindful of the Discord rate limit
+
+        try:
+            webhook.execute()
+        except Exception as e:
+            logger.error(f"Discord Webhook Error: {e}")
+
+        await asyncio.sleep(2) #Be mindful of the Discord rate limit
 
 
 async def main():
