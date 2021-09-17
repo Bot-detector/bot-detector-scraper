@@ -20,6 +20,7 @@ jobs:
           echo "${{ secrets.ENDPOINT }}" >> .env
           echo "${{ secrets.PROXY_DOWNLOAD_URL }}" >> .env
           echo "${{ secrets.QUERY_SIZE }}" >> .env
+          echo "${{ secrets.GRAVEYARD_WEBHOOK_URL }}" >> .env
     
     - name: Build the Docker image
       run: docker build . --file Dockerfile -t bot-detector/bd-scraper:latest
