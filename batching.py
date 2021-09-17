@@ -219,7 +219,7 @@ async def fill_graveyard_plots():
                 players_to_broadcast.append(players_banned.pop())
 
         webhook = DiscordWebhook(url=os.getenv('GRAVEYARD_WEBHOOK_URL'))
-        embed = DiscordEmbed(title="All Ye Bots Lose All Hope", color="000000")
+        embed = DiscordEmbed(title="All Ye Bots Lose All Hope", color="000000", description=f"{broadcast_size} Accounts")
 
         embed.set_timestamp()
         embed.add_embed_field(name="Newly Departed", value=f"{', '.join(players_to_broadcast)}")
