@@ -149,8 +149,9 @@ async def runemetrics_lookup(username, proxy, session, worker_name):
                     # username is not associated to an account
                     username['label_jagex'] = 1
                 elif error == 'NOT_A_MEMBER':
+                    if (username['label_jagex'] != 2):#Only add names that are fresh bans
+                        players_banned.append(username['name']) #add name to list to be broadcast in #bot-graveyard
                     username['label_jagex'] = 2  # account was perm banned
-                    players_banned.append(username['name']) #add name to list to be broadcast in #bot-graveyard
                 elif error == 'PROFILE_PRIVATE':
                     # runemetrics is set to private.  either they're too low level or they're banned.
                     username['label_jagex'] = 3
