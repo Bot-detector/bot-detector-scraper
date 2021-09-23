@@ -4,10 +4,11 @@ import os
 import re
 import sys
 import time
+import traceback
 from multiprocessing import Queue
 
 import logging_loki
-from aiohttp import ClientSession, client_exceptions
+from aiohttp import ClientSession, client_exceptions, ClientTimeout
 from dotenv import load_dotenv
 from discord_webhook import DiscordWebhook
 from discord_webhook.webhook import DiscordEmbed
@@ -102,7 +103,7 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
             username['possible_ban'] = 0
             username['confirmed_ban'] = 0
             username['updated_at'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
-            
+
             output = {}
             output['player'] = username
             output['hiscores'] = player_data
@@ -158,7 +159,7 @@ async def runemetrics_lookup(username, proxy, session, worker_name):
             else:
                 # account is active, probably just too low stats for hiscores
                 username['label_jagex'] = 0
-            
+
             #API assigns this too, but jsut being safe
             username['updated_at'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
 
@@ -200,6 +201,7 @@ async def create_worker(proxy: str, session, worker_name):
             usernames.append(username)
             # await asyncio.sleep(6)
         except Exception as e:
+            print (traceback.format_exc())
             logger.error(f"unhandled exception while looking up {username['name']}: {e}", extra={"tags": {"worker": worker_name}})
 
 
@@ -214,7 +216,7 @@ async def fill_graveyard_plots():
             broadcast_size = 50
         else:
             broadcast_size = num_pending_players
-            
+
         players_to_broadcast = []
         for i in range(broadcast_size):
                 players_to_broadcast.append(players_banned.pop())
@@ -254,7 +256,7 @@ async def main():
 
     while True:
         # from https://stackoverflow.com/questions/63347818/aiohttp-client-exceptions-clientconnectorerror-cannot-connect-to-host-stackover
-        async with ClientSession(trust_env=True) as session:
+        async with ClientSession(trust_env=True, timeout=ClientTimeout(sock_connect=30, sock_read=60)) as session:
             # get usernames to query
             try:
                 logger.info('getting usernames to query')
@@ -272,7 +274,7 @@ async def main():
                         logger.info('starting workers')
                         tasks = [asyncio.create_task(create_worker(
                             proxy=value, session=session, worker_name=f'worker_{str(key+1).rjust(len(str(len(proxies))), "0")}'), name=f'worker_{str(key+1).rjust(len(str(len(proxies))), "0")}') for key, value in enumerate(proxies)]
-                        asyncio.create_task(fill_graveyard_plots())
+                        #asyncio.create_task(fill_graveyard_plots())
                         await asyncio.gather(*tasks)
                         logger.info('all workers stopped')
 
