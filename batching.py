@@ -128,6 +128,7 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
                 return await hiscores_lookup(username=username, proxy=proxy, session=session, worker_name=worker_name, retry=True)
         else:
             logger.error(f"unhandled status code {response.status} from hiscores_lookup().  header: {response.headers}  body: {await response.text()}", extra={"tags": {"worker": worker_name}})
+            await asyncio.sleep(6)
         raise SkipUsername()
 
 
