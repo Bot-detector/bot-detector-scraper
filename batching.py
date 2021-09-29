@@ -224,6 +224,7 @@ async def main():
 
     while True:
         # from https://stackoverflow.com/questions/63347818/aiohttp-client-exceptions-clientconnectorerror-cannot-connect-to-host-stackover
+        # ClientTimeout set lower to force timeouts more quickly than 5 minutes.
         async with ClientSession(trust_env=True, timeout=ClientTimeout(sock_connect=30, sock_read=60)) as session:
             # get usernames to query
             try:
