@@ -100,6 +100,7 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
             # update additional metadata and stash player_data
             username['possible_ban'] = 0
             username['confirmed_ban'] = 0
+            username['label_jagex'] = 0
             username['updated_at'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
 
             output = {}
@@ -107,8 +108,14 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
             output['hiscores'] = player_data
             await asyncio.sleep(6)
             return output
+        elif response.status == 403:
+            #If we hit the bot challenge page just give up for now..
+            raise SkipUsername
+
         elif response.status == 404:
             logger.debug(f"{username['name']} does not exist on hiscores.  trying runemetrics", extra={"tags": {"worker": worker_name}})
+            
+            username['possible_ban'] = 1
 
             output = {}
             output['player'] = await runemetrics_lookup(proxy=proxy, username=username, session=session, worker_name=worker_name)
@@ -199,7 +206,8 @@ async def create_worker(proxy: str, session, worker_name):
             break
         except SkipUsername:
             # push username for another worker to pick up
-            usernames.append(username)
+            pass
+            #usernames.append(username) #give up for now due to cloudflare issues
             # await asyncio.sleep(6)
         except Exception as e:
             print (traceback.format_exc())
