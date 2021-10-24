@@ -16,3 +16,5 @@ spec:
       - name: bd-scraper
         image: hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
         imagePullPolicy: Always
+      imagePullSecrets:
+      - name: regcred
