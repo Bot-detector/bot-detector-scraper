@@ -16,5 +16,3 @@ spec:
       - name: bd-scraper
         image: hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
         imagePullPolicy: Always
-        ports:
-        - containerPort: 5000
