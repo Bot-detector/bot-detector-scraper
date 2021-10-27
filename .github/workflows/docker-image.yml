@@ -34,3 +34,9 @@ jobs:
     - name: Push Image to Registry
       run: docker push hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
 
+    - name: Apply Possible Deployment Changes
+      run: kubectl apply -f bd-scraper-deploy.yaml
+
+    - name: Restart Deployment for Possible Container Changes
+      run: kubectl rollout restart deploy bd-scraper
+
