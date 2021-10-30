@@ -116,6 +116,7 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
             logger.debug(f"{username['name']} does not exist on hiscores.  trying runemetrics", extra={"tags": {"worker": worker_name}})
             
             username['possible_ban'] = 1
+            username['confirmed_player'] = 0
 
             output = {}
             output['player'] = await runemetrics_lookup(proxy=proxy, username=username, session=session, worker_name=worker_name)
