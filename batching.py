@@ -21,14 +21,14 @@ from input_lists import hiscores_minigames, hiscores_skills
 # )
 logger = logging.getLogger()
 
-file_handler = logging.FileHandler(filename="scraper.log", mode='a')
+#file_handler = logging.FileHandler(filename="scraper.log", mode='a')
 handler = logging.StreamHandler(sys.stdout)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 handler.setFormatter(formatter)
-file_handler.setFormatter(formatter)
+#file_handler.setFormatter(formatter)
 
-logger.addHandler(file_handler)
+#logger.addHandler(file_handler)
 logger.addHandler(handler)
 
 # logger.addHandler(loki_handler)
@@ -159,8 +159,6 @@ async def runemetrics_lookup(username, proxy, session, worker_name):
                     # username is not associated to an account
                     username['label_jagex'] = 1
                 elif error == 'NOT_A_MEMBER':
-                    if (username['label_jagex'] != 2):#Only add names that are fresh bans
-                        players_banned.append(username['name']) #add name to list to be broadcast in #bot-graveyard
                     username['label_jagex'] = 2  # account was perm banned
                 elif error == 'PROFILE_PRIVATE':
                     # runemetrics is set to private.  either they're too low level or they're banned.
@@ -219,10 +217,8 @@ async def main():
     # stores the usernames to scrape.  .pop() and .append() methods used by all asyncio tasks
     global usernames
     global results
-    global players_banned
     usernames = []
     results = []
-    players_banned = []
 
     # get proxy list
     logger.info(f'fetching proxy list')
