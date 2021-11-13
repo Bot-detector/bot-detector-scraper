@@ -106,7 +106,6 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
             output = {}
             output['player'] = username
             output['hiscores'] = player_data
-            await asyncio.sleep(6)
             return output
         elif response.status == 403:
             #If we hit the bot challenge page just give up for now..
@@ -121,22 +120,22 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
             output = {}
             output['player'] = await runemetrics_lookup(proxy=proxy, username=username, session=session, worker_name=worker_name)
             output['hiscores'] = None
-            await asyncio.sleep(6)
+            await asyncio.sleep(2)
             return output
         elif response.status == 502:
             logger.warning("502 proxy error", extra={"tags": {"worker": worker_name}})
             if not retry:
-                await asyncio.sleep(6)
+                await asyncio.sleep(2)
                 return await hiscores_lookup(username=username, proxy=proxy, session=session, worker_name=worker_name, retry=True)
 
         elif response.status == 504:
             logger.warning("504 from hiscores", extra={"tags": {"worker": worker_name}})
             if not retry:
-                await asyncio.sleep(6)
+                await asyncio.sleep(2)
                 return await hiscores_lookup(username=username, proxy=proxy, session=session, worker_name=worker_name, retry=True)
         else:
             logger.error(f"unhandled status code {response.status} from hiscores_lookup().  header: {response.headers}  body: {await response.text()}", extra={"tags": {"worker": worker_name}})
-            await asyncio.sleep(6)
+            await asyncio.sleep(2)
         raise SkipUsername()
 
 
