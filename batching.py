@@ -259,12 +259,12 @@ async def main():
                             except client_exceptions.ClientConnectorError:
                                 upload_attempts += 1
                                 logger.error(f"(Attempt {upload_attempts}/3 ) Could not connect to the API to upload hiscores data. Retrying in 30 seconds.")
-                                await asyncio.sleep(30)
+                                await asyncio.sleep(120)
 
                             except asyncio.exceptions.TimeoutError:
                                 upload_attempts += 1
                                 logger.error(f"(Attempt {upload_attempts}/3 ) Connection timed out on hiscores POST. Retrying in 30 seconds.")
-                                await asyncio.sleep(30)
+                                await asyncio.sleep(120)
 
                     else:
                         logger.info(f'no usernames to query.  sleeping 60s')
