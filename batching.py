@@ -5,20 +5,12 @@ import re
 import sys
 import time
 import traceback
-from multiprocessing import Queue
 
-import logging_loki
-from aiohttp import ClientSession, client_exceptions, ClientTimeout
+from aiohttp import ClientSession, client_exceptions, ClientTimeout, TCPConnector
 from dotenv import load_dotenv
 
 from input_lists import hiscores_minigames, hiscores_skills
 
-# setup logging
-# loki_handler = logging_loki.LokiQueueHandler(
-#     Queue(-1),
-#     url="http://loki:3100/loki/api/v1/push",
-#     tags={"service": "scraper_continuous"},
-# )
 logger = logging.getLogger()
 
 #file_handler = logging.FileHandler(filename="scraper.log", mode='a')
@@ -222,7 +214,7 @@ async def main():
     # get proxy list
     logger.info(f'fetching proxy list')
     # from https://stackoverflow.com/questions/63347818/aiohttp-client-exceptions-clientconnectorerror-cannot-connect-to-host-stackover
-    async with ClientSession(trust_env=True) as session:
+    async with ClientSession(trust_env=True, connector=TCPConnector(ssl=False)) as session:
         proxies = await get_proxy_list(session=session)
         logger.info(f'fetched {len(proxies)} proxies')
 
