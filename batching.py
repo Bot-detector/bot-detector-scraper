@@ -88,6 +88,7 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
 
             # recast every value from str to int
             player_data = {key: int(value) for key, value in player_data.items()}
+            player_data['Player_id'] = username['id']
 
             # update additional metadata and stash player_data
             username['possible_ban'] = 0
