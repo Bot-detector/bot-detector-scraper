@@ -222,7 +222,7 @@ async def main():
     while True:
         # from https://stackoverflow.com/questions/63347818/aiohttp-client-exceptions-clientconnectorerror-cannot-connect-to-host-stackover
         # ClientTimeout set lower to force timeouts more quickly than 5 minutes.
-        async with ClientSession(trust_env=True, timeout=ClientTimeout(sock_connect=30, sock_read=60)) as session:
+        async with ClientSession(trust_env=True, timeout=ClientTimeout(sock_connect=30, sock_read=60), connector=TCPConnector(ssl=False)) as session:
             # get usernames to query
             try:
                 logger.info('getting usernames to query')
@@ -271,8 +271,9 @@ async def main():
                         logger.info(f'no usernames to query.  sleeping 60s')
                         await asyncio.sleep(60)
 
-            except client_exceptions.ClientConnectorError:
+            except client_exceptions.ClientConnectorError as e:
                 logger.error("Scraper could not connect to the API to obtain accounts to scrape. Retrying in 60 seconds.")
+                logger.debug(e)
                 await asyncio.sleep(60)
 
             except asyncio.exceptions.TimeoutError:
