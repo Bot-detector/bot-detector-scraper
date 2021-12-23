@@ -94,6 +94,7 @@ async def hiscores_lookup(username, proxy: str, session: ClientSession, worker_n
             username['possible_ban'] = 0
             username['confirmed_ban'] = 0
             username['label_jagex'] = 0
+            username['label_id'] = 0 if username['label_id'] not in [1,59] else username['label_id']
             username['updated_at'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
 
             output = {}
@@ -159,6 +160,7 @@ async def runemetrics_lookup(username, proxy, session, worker_name):
                 else:
                     # account is active, probably just too low stats for hiscores
                     username['label_jagex'] = 0
+                    username['label_id'] = 0
 
                 #API assigns this too, but jsut being safe
                 username['updated_at'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
