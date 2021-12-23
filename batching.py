@@ -142,34 +142,40 @@ async def runemetrics_lookup(username, proxy, session, worker_name):
     """
 
     #logger.debug(f"performing runemetrics lookup on {username['name']}", extra={"tags": {"worker": worker_name}})
-    async with session.get(url=f"https://apps.runescape.com/runemetrics/profile/profile?user={username['name']}", proxy=proxy) as response:
-        if response.status == 200:
-            logger.debug(f"found {username['name']} on runemetrics", extra={"tags": {"worker": worker_name}})
-            if 'error' in await response.json():
-                error = (await response.json())['error']
-                if error == 'NO_PROFILE':
-                    # username is not associated to an account
-                    username['label_jagex'] = 1
-                elif error == 'NOT_A_MEMBER':
-                    username['label_jagex'] = 2  # account was perm banned
-                elif error == 'PROFILE_PRIVATE':
-                    # runemetrics is set to private.  either they're too low level or they're banned.
-                    username['label_jagex'] = 3
+    try:
+        async with session.get(url=f"https://apps.runescape.com/runemetrics/profile/profile?user={username['name']}", proxy=proxy) as response:
+            if response.status == 200:
+                logger.debug(f"found {username['name']} on runemetrics", extra={"tags": {"worker": worker_name}})
+                if 'error' in await response.json():
+                    error = (await response.json())['error']
+                    if error == 'NO_PROFILE':
+                        # username is not associated to an account
+                        username['label_jagex'] = 1
+                    elif error == 'NOT_A_MEMBER':
+                        username['label_jagex'] = 2  # account was perm banned
+                    elif error == 'PROFILE_PRIVATE':
+                        # runemetrics is set to private.  either they're too low level or they're banned.
+                        username['label_jagex'] = 3
+                else:
+                    # account is active, probably just too low stats for hiscores
+                    username['label_jagex'] = 0
+
+                #API assigns this too, but jsut being safe
+                username['updated_at'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
+
+                return username
+            elif response.status == 502:
+                logger.warning("502 proxy error", extra={"tags": {"worker": worker_name}})
+            elif response.status == 504:
+                logger.warning("504 returned from RuneMetrics", extra={"tags": {"worker": worker_name}})
             else:
-                # account is active, probably just too low stats for hiscores
-                username['label_jagex'] = 0
-
-            #API assigns this too, but jsut being safe
-            username['updated_at'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
-
-            return username
-        elif response.status == 502:
-            logger.warning("502 proxy error", extra={"tags": {"worker": worker_name}})
-        elif response.status == 504:
-            logger.warning("504 returned from RuneMetrics", extra={"tags": {"worker": worker_name}})
-        else:
-            logger.error(f"unhandled status code {response.status} from RuneMetrics.  header: {response.headers}  body: {await response.text()}", extra={"tags": {"worker": worker_name}})
+                logger.error(f"unhandled status code {response.status} from RuneMetrics.  header: {response.headers}  body: {await response.text()}", extra={"tags": {"worker": worker_name}})
+            raise SkipUsername()
+    except asyncio.exceptions.TimeoutError:
         raise SkipUsername()
+        return await runemetrics_lookup(username, proxy, session, worker_name)
+
+            
 
 
 async def create_worker(proxy: str, session, worker_name):
