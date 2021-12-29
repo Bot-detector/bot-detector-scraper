@@ -186,9 +186,9 @@ async def create_worker(proxy: str, session, worker_name):
     name: the name of the worker.  Used for logging/debugging
     """
     # log only the proxy's ip and port
-    _proxy_obfuscated = re.search(
-        '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,6}', proxy)[0]
+    _proxy_obfuscated = re.search('^(.*?):\d{1,6}', proxy)[0]
     logger.debug(f"Starting worker using proxy http://{_proxy_obfuscated}", extra={"tags": {"worker": worker_name}})
+    
     while True:
         try:
             # pop a username to work on
