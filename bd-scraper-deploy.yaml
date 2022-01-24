@@ -16,5 +16,11 @@ spec:
       - name: bd-scraper
         image: hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
         imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "500Mi"
+          limits:
+            cpu: "750m"
+            memory: "1000Mi"
       imagePullSecrets:
       - name: regcred
