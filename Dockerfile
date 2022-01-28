@@ -1,9 +1,18 @@
-FROM python:3
+FROM python:3.9-slim
 
-WORKDIR /home
+WORKDIR /project
+COPY ./requirements.txt /project/requirements.txt
 
-COPY requirements.txt .
-RUN pip3 install -r requirements.txt --no-cache-dir
-COPY . .
+# required to install github.com/TheRealNoob/python-logging-loki.git
+RUN apt update && \
+    apt install git curl -y && \
+    apt clean autoclean && \
+    apt autoremove --yes && \
+    rm -rf /var/lib/{apt,dpkg,cache,log}
 
-CMD ["python3", "batching.py"]
+RUN pip install --no-cache-dir -r /project/requirements.txt
+
+COPY . /project
+
+CMD ["python", "src/batching.py"]
+# CMD [ "sleep", "1000" ]

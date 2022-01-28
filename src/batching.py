@@ -1,35 +1,17 @@
 import asyncio
 import logging
-import os
 import re
 import sys
 import time
 import traceback
 
-from aiohttp import ClientSession, client_exceptions, ClientTimeout, TCPConnector
-from dotenv import load_dotenv
+from aiohttp import (ClientSession, ClientTimeout, TCPConnector,
+                     client_exceptions)
 
+import config
 from input_lists import hiscores_minigames, hiscores_skills
 
-logger = logging.getLogger()
-
-#file_handler = logging.FileHandler(filename="scraper.log", mode='a')
-handler = logging.StreamHandler(sys.stdout)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-handler.setFormatter(formatter)
-#file_handler.setFormatter(formatter)
-
-#logger.addHandler(file_handler)
-logger.addHandler(handler)
-
-# logger.addHandler(loki_handler)
-logger.setLevel(logging.DEBUG)
-# loki uses urllib3 to ship the logs to the DB.  And urllib 3 has debug level messages every time it
-# opens a connection, which causes a circular loop.  so this is a simple hack to avoid the problem
-logging.getLogger('urllib3').setLevel(logging.INFO)
-
-load_dotenv()
+logger = logging.getLogger(__name__)
 
 
 class SkipUsername(Exception):
@@ -45,7 +27,7 @@ async def get_proxy_list(session):
     output format: ['http://user:pass@ip:port', 'http://user:pass@ip:port', ...]
     """
     logger.info('fetching proxy list from webshare.io')
-    async with session.get(os.getenv('PROXY_DOWNLOAD_URL')) as response:
+    async with session.get(config.PROXY_DOWNLOAD_URL) as response:
         if response.status == 200:
             proxies = [proxy.split(':') for proxy in (await response.text()).splitlines()]
             proxies = [
@@ -232,7 +214,7 @@ async def main():
             # get usernames to query
             try:
                 logger.info('getting usernames to query')
-                async with session.get(f"{os.getenv('endpoint')}/scraper/players/0/{os.getenv('QUERY_SIZE')}/{os.getenv('TOKEN')}") as response:
+                async with session.get(f"{config.ENDPOINT}/scraper/players/0/{config.QUERY_SIZE}/{config.TOKEN}") as response:
                     usernames = await response.json()
 
                     if len(usernames) > 0:
@@ -254,7 +236,7 @@ async def main():
                         while upload_attempts < 3:
                             try:
                                 logger.info(f'posting {len(results)} results to the api')
-                                async with session.post(url=f"{os.getenv('endpoint')}/scraper/hiscores/{os.getenv('TOKEN')}", json=results) as response:
+                                async with session.post(url=f"{config.ENDPOINT}/scraper/hiscores/{config.TOKEN}", json=results) as response:
                                     logger.info(
                                         f'uploading {len(results)} scraped usernames to api')
                                     if response.status == 200:

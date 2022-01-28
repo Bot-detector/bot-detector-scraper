@@ -1,0 +1,14 @@
+version: '3'
+services:
+  scraper:
+    build:
+      context: ../bot-detector-scraper
+      dockerfile: Dockerfile
+    image: bot-detector/bd-scraper:latest
+    env_file:
+      - .env
+    networks:
+      - botdetector-network
+
+networks:
+  botdetector-network:
