@@ -43,6 +43,6 @@ class botDetectorApi:
                     logger.error(f"response status {response.status}")
                     logger.error(f"response body: {await response.text()}")
                     raise Exception("error posting scraped players")
-                data = await response.json()
+                resp = await response.json()
         logger.info(f"posted {len(data)} players")
-        return data
+        return resp

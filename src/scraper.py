@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import logging
 import time
 from collections import deque
@@ -78,7 +79,7 @@ async def create_worker(proxy):
             jobs.append(Job("post_scraped_players"))
         elif job.name == "post_scraped_players":
             # copy the results
-            job.data = results.copy()
+            job.data = copy.deepcopy(results)
             results = []
             # posting data to api
             await api.post_scraped_players(job.data)
@@ -106,7 +107,7 @@ async def create_worker(proxy):
                 output = {}
                 output["player"] = player
                 output["hiscores"] = hiscore
-            results.append(output)
+            results.append(output.copy())
 
 
 async def main():
