@@ -1,5 +1,4 @@
 import asyncio
-from collections import deque
 import logging
 import time
 
@@ -98,8 +97,8 @@ class Scraper:
         hiscore = {k: int(v) for k, v in hiscore.items()}
         return hiscore
 
-    async def lookup_runemetrics(self, player:dict) ->dict:
-        """"
+    async def lookup_runemetrics(self, player: dict) -> dict:
+        """ "
         Performs a RuneMetrics lookup on the given player.
 
         :param player: a dictionary containing the player's name and id
@@ -112,22 +111,24 @@ class Scraper:
                     if response.status == 200:
                         logger.debug(f"found {player.get('name')} on runemetrics")
                         data = await response.json()
-                        if 'error' in data:
-                            error = data['error']
-                            if error == 'NO_PROFILE':
+                        if "error" in data:
+                            error = data["error"]
+                            if error == "NO_PROFILE":
                                 # username is not associated to an account
-                                player['label_jagex'] = 1
-                            elif error == 'NOT_A_MEMBER':
-                                player['label_jagex'] = 2  # account was perm banned
-                            elif error == 'PROFILE_PRIVATE':
+                                player["label_jagex"] = 1
+                            elif error == "NOT_A_MEMBER":
+                                player["label_jagex"] = 2  # account was perm banned
+                            elif error == "PROFILE_PRIVATE":
                                 # runemetrics is set to private.  either they're too low level or they're banned.
-                                player['label_jagex'] = 3
+                                player["label_jagex"] = 3
                         else:
                             # account is active, probably just too low stats for hiscores
-                            player['label_jagex'] = 0
+                            player["label_jagex"] = 0
 
-                        #API assigns this too, but jsut being safe
-                        player['updated_at'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
+                        # API assigns this too, but jsut being safe
+                        player["updated_at"] = time.strftime(
+                            "%Y-%m-%d %H:%M:%S", time.gmtime()
+                        )
                         return player
                     elif response.status == 502:
                         logger.warning("502 proxy error")
@@ -137,7 +138,9 @@ class Scraper:
                         await asyncio.sleep(1)
                     else:
                         body = await response.text()
-                        logger.error(f"unhandled status code {response.status} from RuneMetrics.  header: {response.headers}  body: {body}")
+                        logger.error(
+                            f"unhandled status code {response.status} from RuneMetrics.  header: {response.headers}  body: {body}"
+                        )
                         await asyncio.sleep(1)
                     raise SkipUsername()
         except Exception as e:
