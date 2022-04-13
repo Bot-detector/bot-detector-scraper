@@ -32,7 +32,6 @@ class Scraper:
         url = f"https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws?player={player['name']}"
         async with aiohttp.ClientSession() as session:
             async with session.get(url, proxy=self.proxy) as response:
-                self.request_log()
                 if response.status == 200:
                     hiscore = await response.text()
                     hiscore = await self.__parse_hiscores(hiscore)
