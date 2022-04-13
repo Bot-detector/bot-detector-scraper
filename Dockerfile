@@ -14,5 +14,5 @@ RUN pip install --no-cache-dir -r /project/requirements.txt
 
 COPY . /project
 
-CMD ["python", "src/batching.py"]
+CMD ["python", "src/scraper.py"]
 # CMD [ "sleep", "1000" ]
