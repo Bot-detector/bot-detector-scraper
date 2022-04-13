@@ -1,7 +1,6 @@
 from typing import List
 
 
-
 class Inputs:
     skills: List["str"] = [
         "total",
@@ -29,7 +28,6 @@ class Inputs:
         "hunter",
         "construction",
     ]
-
     minigames: List["str"] = [
         "league",
         "bounty_hunter_hunter",
@@ -45,7 +43,6 @@ class Inputs:
         "soul_wars_zeal",
         "rifts_closed",
     ]
-
     bosses: List["str"] = [
         "abyssal_sire",
         "alchemical_hydra",

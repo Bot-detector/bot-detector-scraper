@@ -13,14 +13,17 @@ from helpers.Scraper import Scraper
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass()
 class Job:
     name: str
     data: Optional[List[dict]] = None
 
+
 # global variables
 jobs = deque([Job("get_players_to_scrape")])
 results = []
+
 
 async def get_proxy_list() -> List:
     """
@@ -45,7 +48,18 @@ async def get_proxy_list() -> List:
             logger.info(f"fetched {len(proxies)} proxies")
     return proxies
 
+
 async def create_worker(proxy):
+    """
+    This function is responsible for creating a worker that will process jobs.
+
+    The worker will process jobs in the following order:
+    1. get_players_to_scrape
+    2. process_hiscore
+    3. post_scraped_players
+
+    The worker will repeat the process until there are no more jobs to process.
+    """
     global results
 
     api = botDetectorApi(config.ENDPOINT, config.QUERY_SIZE, config.TOKEN)
@@ -96,6 +110,10 @@ async def create_worker(proxy):
 
 
 async def main():
+    """
+    This function is the main function of the program.
+    It creates a list of proxies and then creates a worker for each proxy.
+    """
     proxies = await get_proxy_list()
     workers = [asyncio.create_task(create_worker(proxy)) for proxy in proxies]
     await asyncio.gather(*workers)

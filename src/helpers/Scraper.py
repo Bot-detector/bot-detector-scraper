@@ -21,9 +21,14 @@ class SkipUsername(Exception):
 class Scraper:
     def __init__(self, proxy) -> None:
         self.proxy = proxy
-        self.challenges = deque(maxlen=100) 
 
     async def lookup_hiscores(self, player: dict) -> dict:
+        """
+        Performs a hiscores lookup on the given player.
+
+        :param player: a dictionary containing the player's name and id
+        :return: a dictionary containing the player's hiscores.  if the player does not exist on hiscores, returns a dictionary of the player
+        """
         logger.debug(f"performing hiscores lookup on {player.get('name')}")
         url = f"https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws?player={player['name']}"
         async with aiohttp.ClientSession() as session:
@@ -57,6 +62,12 @@ class Scraper:
                     await asyncio.sleep(1)
 
     async def __parse_hiscores(self, hiscore):
+        """
+        Parses the hiscores response into a dictionary.
+
+        :param hiscore: the hiscores response
+        :return: a dictionary containing the hiscores
+        """
         # each row is seperated by a new line.
         # each value is seperated by a comma.
         # we only want the last value; the xp/kills
@@ -88,6 +99,12 @@ class Scraper:
         return hiscore
 
     async def lookup_runemetrics(self, player:dict) ->dict:
+        """"
+        Performs a RuneMetrics lookup on the given player.
+
+        :param player: a dictionary containing the player's name and id
+        :return: a dictionary containing the player's RuneMetrics data
+        """
         url = f"https://apps.runescape.com/runemetrics/profile/profile?user={player.get('name')}"
         try:
             async with aiohttp.ClientSession() as session:
