@@ -77,6 +77,9 @@ async def create_worker(proxy):
             players = await api.get_players_to_scrape()
             [jobs.append(Job("process_hiscore", [player])) for player in players]
             jobs.append(Job("post_scraped_players"))
+            if len(jobs) < 2*int(config.QUERY_SIZE):
+                jobs.insert(int(len(jobs)/2), Job("get_players_to_scrape"))
+            print(len(jobs))
         elif job.name == "post_scraped_players":
             # copy the results
             job.data = copy.deepcopy(results)
