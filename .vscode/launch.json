@@ -12,6 +12,7 @@
             "console": "integratedTerminal",
             "justMyCode": true
         },
+        // docker-compose up does not have a debugger
         {
             "name": "docker-compose up",
             "type": "docker",
@@ -32,5 +33,26 @@
                 "uriFormat": "%s://localhost:%s/"
             }
         },
+        // does have a debugger
+        {
+            "name": "docker debug",
+            "type": "docker",
+            "request": "launch",
+            "preLaunchTask": "docker-run",
+            "python": {
+                "projectType": "general",
+                "pathMappings": [
+                    {
+                        "localRoot": "${workspaceFolder}",
+                        "remoteRoot": "/project"
+                    }
+                ],
+            },
+            "dockerServerReadyAction": {
+                "action": "openExternally",
+                "pattern": "Running on (http?://\\S+|[0-9]+)",
+                "uriFormat": "%s://localhost:%s/"
+            }
+        }
     ]
 }

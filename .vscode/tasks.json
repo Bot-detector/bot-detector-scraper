@@ -14,6 +14,32 @@
 					"${workspaceFolder}/docker-compose.yml"
 				]
 			}
+		},
+		// build docker image
+		{
+			"type": "docker-build",
+			"label": "docker-build",
+			"dockerBuild": {
+				"context": "${workspaceFolder}",
+				"dockerfile": "${workspaceFolder}/Dockerfile",
+				"tag": "bd-scraper:latest"
+			}
+		},
+		// run docker image
+		{
+			"type": "docker-run",
+			"label": "docker-run",
+			"dependsOn": [
+				"docker-build"
+			],
+			"dockerRun": {
+				"containerName": "bd-scraper",
+				"image": "bd-scraper:latest",
+			},
+			// the command docker-run has to send
+			"python": {
+				"file": "./src/scraper.py"
+			}
 		}
 	]
 }
