@@ -8,3 +8,10 @@ jobs:
     steps:
       - name: Python Blacken
         uses: piotrpawlaczek/python-blacken@v22.1.0
+        with:
+          # pep-8 line length
+          line-length: "79"
+          path: "./src"
+          sanity-check: "safe"
+          # allow black to change code
+          only-check: "no" 
