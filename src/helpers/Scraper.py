@@ -151,8 +151,8 @@ class Scraper:
                     elif response.status == 502:
                         logger.warning("502 proxy error")
                         await asyncio.sleep(1)
-                    elif response.status == 504:
-                        logger.warning("504 returned from RuneMetrics")
+                    elif response.status in [504, 520]:
+                        logger.warning(f"{response.status} returned from RuneMetrics")
                         await asyncio.sleep(1)
                     else:
                         body = await response.text()
