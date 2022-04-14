@@ -1,0 +1,10 @@
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  blacken:
+    runs-on: self-hosted
+    steps:
+      - name: Python Blacken
+        uses: piotrpawlaczek/python-blacken@v22.1.0
