@@ -59,7 +59,6 @@ class Scraper:
                 elif response.status == 403:
                     # If we hit the bot challenge page just give up for now..
                     await asyncio.sleep(1)
-                    raise SkipUsername
                 elif response.status == 404:
                     logger.debug(
                         f"{player['name']} does not exist on hiscores. trying runemetrics"
@@ -77,7 +76,7 @@ class Scraper:
                         f"unhandled status code {response.status} from RuneMetrics.  header: {response.headers}  body: {body}"
                     )
                     await asyncio.sleep(1)
-
+        raise SkipUsername()
     async def __parse_hiscores(self, hiscore: str) -> dict:
         """
         Parses the hiscores response into a dictionary.
