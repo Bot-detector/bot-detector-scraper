@@ -1,6 +1,7 @@
 import asyncio
 import copy
 import logging
+import sys
 import time
 from collections import deque
 from dataclasses import dataclass
@@ -74,19 +75,23 @@ async def create_worker(proxy):
         job = jobs.popleft()
 
         if job.name == "get_players_to_scrape":
+            # get_players_to_scrape
             players = await api.get_players_to_scrape()
+            # for each player create a job to process the hiscore
             [jobs.append(Job("process_hiscore", [player])) for player in players]
+            # add a job to post the scraped data to the api
             jobs.append(Job("post_scraped_players"))
-            if len(jobs) < 2*int(config.QUERY_SIZE):
-                jobs.insert(int(len(jobs)/2), Job("get_players_to_scrape"))
-            print(len(jobs))
+            # add a job midway through the process hiscore jobs to get players to scrape
+            if len(jobs) < 2 * int(config.QUERY_SIZE):
+                jobs.insert(int(len(jobs) / 2), Job("get_players_to_scrape"))
+            logger.debug(f"Length of jobs: {len(jobs)}")
         elif job.name == "post_scraped_players":
             # copy the results
             job.data = copy.deepcopy(results)
             results = []
             # posting data to api
             await api.post_scraped_players(job.data)
-            # add a new players to scrape
+            # add a job to get players to scrape
             jobs.append(Job("get_players_to_scrape"))
         elif job.name == "process_hiscore" and job.data:
             player = job.data[0]
@@ -124,8 +129,13 @@ async def main():
 
 
 if __name__ == "__main__":
-    # resolves a windows issue
-    policy = asyncio.WindowsSelectorEventLoopPolicy()
-    asyncio.set_event_loop_policy(policy)
-
+    # from https://stackoverflow.com/questions/63347818/aiohttp-client-exceptions-clientconnectorerror-cannot-connect-to-host-stackover
+    if (
+        sys.platform.startswith("win")
+        and sys.version_info[0] == 3
+        and sys.version_info[1] >= 8
+    ):
+        logger.info("Set policy")
+        policy = asyncio.WindowsSelectorEventLoopPolicy()
+        asyncio.set_event_loop_policy(policy)
     asyncio.run(main())
