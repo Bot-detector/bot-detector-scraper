@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from collections import deque
 
 import aiohttp
 
@@ -18,8 +19,25 @@ class SkipUsername(Exception):
 
 
 class Scraper:
-    def __init__(self, proxy) -> None:
+    def __init__(self, proxy: str, calls_per_minute: int = 60) -> None:
         self.proxy = proxy
+        self.history = deque(maxlen=calls_per_minute)
+
+    async def rate_limit(self):
+        """
+        Rate limits the scraper to 60 calls a minute.
+        """
+        self.history.append(int(time.time()))
+        maxlen = self.history.maxlen
+        if len(self.history) == maxlen:
+            head = self.history[0]
+            tail = self.history[-1]
+            span = tail - head
+            if span < 60:
+                sleep = 60 - span
+                logger.debug(f"Rate limit reached, sleeping {sleep} seconds")
+                await asyncio.sleep(sleep)
+        return
 
     async def lookup_hiscores(self, player: dict) -> dict:
         """
@@ -28,6 +46,7 @@ class Scraper:
         :param player: a dictionary containing the player's name and id
         :return: a dictionary containing the player's hiscores.  if the player does not exist on hiscores, returns a dictionary of the player
         """
+        await self.rate_limit()
         logger.debug(f"performing hiscores lookup on {player.get('name')}")
         url = f"https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws?player={player['name']}"
         async with aiohttp.ClientSession() as session:
@@ -59,7 +78,7 @@ class Scraper:
                     )
                     await asyncio.sleep(1)
 
-    async def __parse_hiscores(self, hiscore):
+    async def __parse_hiscores(self, hiscore: str) -> dict:
         """
         Parses the hiscores response into a dictionary.
 
@@ -69,7 +88,7 @@ class Scraper:
         # each row is seperated by a new line.
         # each value is seperated by a comma.
         # we only want the last value; the xp/kills
-        hiscore = [x.split(",")[-1] for x in hiscore.split("\n")]
+        hiscore = [row.split(",")[-1] for row in hiscore.split("\n")]
 
         # filter empty line (last line is empty)
         hiscore = list(filter(None, hiscore))
@@ -145,4 +164,3 @@ class Scraper:
         except Exception as e:
             logger.warning(e)
             raise SkipUsername()
-        pass
