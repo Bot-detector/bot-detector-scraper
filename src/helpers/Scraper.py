@@ -19,7 +19,7 @@ class SkipUsername(Exception):
 
 
 class Scraper:
-    def __init__(self, proxy: str, calls_per_minute: int = 60) -> None:
+    def __init__(self, proxy: str, calls_per_minute: int = 30) -> None:
         self.proxy = proxy
         self.history = deque(maxlen=calls_per_minute)
 
