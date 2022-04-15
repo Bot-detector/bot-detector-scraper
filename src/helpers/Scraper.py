@@ -57,6 +57,7 @@ class Scraper:
                     hiscore["Player_id"] = player["id"]
                     return hiscore
                 elif response.status == 403:
+                    logger.warning(f"403 bot challenge received proxy: {self.proxy}")
                     # If we hit the bot challenge page just give up for now..
                     await asyncio.sleep(1)
                 elif response.status == 404:
