@@ -11,12 +11,10 @@ jobs:
     - name: Python Blacken
       uses: extreme4all/python-black-check-v22.3.0@master
       with:
-        # default for black, pep-8 says 79
         line-length: '88'
         path: './src'
-        # leave defaults
-        # include: 'apps'
-        # exclude: '(/*.html|/*.mo|/*.po|/*.png|/*.rst)'
+        sanity-check: 'safe'
+        only-check: 'no'
   build:
     needs: [blacken]
     runs-on: self-hosted
