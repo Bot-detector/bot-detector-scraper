@@ -2,39 +2,46 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ develop ]
+    branches: [develop]
 
 jobs:
-
-  build:
-
+  blacken:
     runs-on: self-hosted
-
     steps:
-    - uses: actions/checkout@v2
-    - name: Set Up ENV
-      run: |
+    - name: Python Blacken
+      uses: extreme4all/python-black-check-v22.3.0@master
+      with:
+        line-length: '88'
+        path: './src'
+        sanity-check: 'safe'
+        only-check: 'no'
+  build:
+    needs: [blacken]
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set Up ENV
+        run: |
           echo "${{ secrets.API_TOKEN }}" > .env
           echo "${{ secrets.ENDPOINT }}" >> .env
           echo "${{ secrets.PROXY_DOWNLOAD_URL }}" >> .env
           echo "${{ secrets.QUERY_SIZE }}" >> .env
           echo "${{ secrets.GRAVEYARD_WEBHOOK_URL }}" >> .env
-    
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile -t bot-detector/bd-scraper:latest
 
-    - name: Tag Image
-      run: docker tag bot-detector/bd-scraper:latest hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
-      
-    - name: Login to Docker Registry
-      run: echo "${{ secrets.DOCKER_REGISTRY_PASSWORD }}" | docker login https://hub.osrsbotdetector.com -u "${{ secrets.DOCKER_REGISTRY_USERNAME }}" --password-stdin
+      - name: Build the Docker image
+        run: docker build . --file Dockerfile -t bot-detector/bd-scraper:latest
 
-    - name: Push Image to Registry
-      run: docker push hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
+      - name: Tag Image
+        run: docker tag bot-detector/bd-scraper:latest hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
 
-    - name: Apply Possible Deployment Changes
-      run: kubectl apply -f bd-scraper-deploy.yaml
+      - name: Login to Docker Registry
+        run: echo "${{ secrets.DOCKER_REGISTRY_PASSWORD }}" | docker login https://hub.osrsbotdetector.com -u "${{ secrets.DOCKER_REGISTRY_USERNAME }}" --password-stdin
 
-    - name: Restart Deployment for Possible Container Changes
-      run: kubectl rollout restart deploy bd-scraper
+      - name: Push Image to Registry
+        run: docker push hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
 
+      - name: Apply Possible Deployment Changes
+        run: kubectl apply -f bd-scraper-deploy.yaml
+
+      - name: Restart Deployment for Possible Container Changes
+        run: kubectl rollout restart deploy bd-scraper
