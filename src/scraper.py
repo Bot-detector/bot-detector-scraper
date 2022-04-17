@@ -98,7 +98,7 @@ async def create_worker(proxy):
             hiscore = await scraper.lookup_hiscores(player)
             # data validation
             if hiscore is None:
-                logger.warning(f"Hiscore is empty: {player.get('name')}")
+                logger.warning(f"Hiscore is empty for {player.get('name')}")
                 continue
             # player is not on the hiscores
             if "error" in hiscore:

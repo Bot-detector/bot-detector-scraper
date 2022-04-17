@@ -49,35 +49,40 @@ class Scraper:
         await self.rate_limit()
         logger.debug(f"performing hiscores lookup on {player.get('name')}")
         url = f"https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws?player={player['name']}"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, proxy=self.proxy) as response:
-                if response.status == 200:
-                    hiscore = await response.text()
-                    hiscore = await self.__parse_hiscores(hiscore)
-                    hiscore["Player_id"] = player["id"]
-                    return hiscore
-                elif response.status == 403:
-                    logger.warning(f"403 bot challenge received proxy: {self.proxy}")
-                    # If we hit the bot challenge page just give up for now..
-                    await asyncio.sleep(1)
-                elif response.status == 404:
-                    logger.debug(
-                        f"{player['name']} does not exist on hiscores. trying runemetrics"
-                    )
-                    return {"error": player}
-                elif response.status == 502:
-                    logger.warning("502 proxy error")
-                    await asyncio.sleep(1)
-                elif response.status == 504:
-                    logger.warning("504 from hiscores")
-                    await asyncio.sleep(1)
-                else:
-                    body = await response.text()
-                    logger.error(
-                        f"unhandled status code {response.status} from RuneMetrics.  header: {response.headers}  body: {body}"
-                    )
-                    await asyncio.sleep(1)
-        raise SkipUsername()
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, proxy=self.proxy) as response:
+                    if response.status == 200:
+                        hiscore = await response.text()
+                        hiscore = await self.__parse_hiscores(hiscore)
+                        hiscore["Player_id"] = player["id"]
+                        return hiscore
+                    elif response.status == 403:
+                        logger.warning(f"403 bot challenge received proxy: {self.proxy}")
+                        # If we hit the bot challenge page just give up for now..
+                        await asyncio.sleep(1)
+                    elif response.status == 404:
+                        logger.debug(
+                            f"{player['name']} does not exist on hiscores. trying runemetrics"
+                        )
+                        return {"error": player}
+                    elif response.status == 502:
+                        logger.warning("502 proxy error")
+                        await asyncio.sleep(1)
+                    elif response.status == 504:
+                        logger.warning("504 from hiscores")
+                        await asyncio.sleep(1)
+                    else:
+                        body = await response.text()
+                        logger.error(
+                            f"unhandled status code {response.status} from RuneMetrics.  header: {response.headers}  body: {body}"
+                        )
+                        await asyncio.sleep(1)
+        except Exception as e:
+            logger.error(e)
+            return None
+
+
     async def __parse_hiscores(self, hiscore: str) -> dict:
         """
         Parses the hiscores response into a dictionary.
@@ -160,7 +165,5 @@ class Scraper:
                             f"unhandled status code {response.status} from RuneMetrics.  header: {response.headers}  body: {body}"
                         )
                         await asyncio.sleep(1)
-                    raise SkipUsername()
         except Exception as e:
-            logger.warning(e)
-            raise SkipUsername()
+            logger.error(e)
