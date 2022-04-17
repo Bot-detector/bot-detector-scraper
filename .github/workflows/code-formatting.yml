@@ -7,7 +7,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Python Blacken
-        uses: piotrpawlaczek/python-blacken@v22.1.0
+        uses: extreme4all/python-black-check-v22.3.0@master
         with:
           # pep-8 line length
           line-length: "79"
