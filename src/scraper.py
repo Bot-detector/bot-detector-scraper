@@ -65,6 +65,7 @@ class Worker:
 
     async def __post_scraped_players(self, job: Job) -> None:
         global jobs
+        global results
         # copy the results
         job.data = copy.deepcopy(results)
         results = []
