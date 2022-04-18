@@ -96,18 +96,26 @@ async def create_worker(proxy):
         elif job.name == "process_hiscore" and job.data:
             player = job.data[0]
             hiscore = await scraper.lookup_hiscores(player)
+
             # data validation
             if hiscore is None:
                 logger.warning(f"Hiscore is empty for {player.get('name')}")
                 continue
+
             # player is not on the hiscores
             if "error" in hiscore:
                 # update additional metadata
                 player["possible_ban"] = 1
                 player["confirmed_player"] = 0
+                player = await scraper.lookup_runemetrics(player)
+                
+                # data validation
+                if player is None:
+                    logger.warning(f"Player is None, Player_id: {hiscore.get('Player_id')}")
+                    continue
 
                 output = {}
-                output["player"] = await scraper.lookup_runemetrics(player)
+                output["player"] = player
                 output["hiscores"] = None
             else:
                 # update additional metadata
