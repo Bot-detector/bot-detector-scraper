@@ -9,6 +9,8 @@ from helpers.Inputs import Inputs
 
 logger = logging.getLogger(__name__)
 
+TIMEOUT_SECONDS = 1
+SESSION_TIMEOUT = aiohttp.ClientTimeout(total=None,sock_connect=TIMEOUT_SECONDS,sock_read=TIMEOUT_SECONDS)
 
 class SkipUsername(Exception):
     """
@@ -50,7 +52,7 @@ class Scraper:
         logger.debug(f"performing hiscores lookup on {player.get('name')}")
         url = f"https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws?player={player['name']}"
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=SESSION_TIMEOUT) as session:
                 async with session.get(url, proxy=self.proxy) as response:
                     if response.status == 200:
                         hiscore = await response.text()
@@ -79,7 +81,8 @@ class Scraper:
                         )
                         await asyncio.sleep(1)
         except Exception as e:
-            logger.error(e)
+            logger.error(f"{e}, player: {player}")
+
             return None
 
 
@@ -106,7 +109,6 @@ class Scraper:
             )
 
         hiscore = dict(zip(Inputs.skills + Inputs.minigames + Inputs.bosses, hiscore))
-
         # calculate the skills total as it might not be ranked
         hiscore["total"] = sum(
             [
@@ -129,7 +131,7 @@ class Scraper:
         """
         url = f"https://apps.runescape.com/runemetrics/profile/profile?user={player.get('name')}"
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=SESSION_TIMEOUT) as session:
                 async with session.get(url, proxy=self.proxy) as response:
                     if response.status == 200:
                         logger.debug(f"found {player.get('name')} on runemetrics")

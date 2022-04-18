@@ -78,7 +78,11 @@ async def create_worker(proxy):
             # get_players_to_scrape
             players = await api.get_players_to_scrape()
             # for each player create a job to process the hiscore
-            [jobs.append(Job("process_hiscore", [player])) for player in players]
+            for i, player in enumerate(players):
+                jobs.append(Job("process_hiscore", [player]))
+                # add a job to post the scraped data to the api
+                if i > 0 and i % 1000 == 0:
+                    jobs.append(Job("post_scraped_players"))
             # add a job to post the scraped data to the api
             jobs.append(Job("post_scraped_players"))
             # add a job midway through the process hiscore jobs to get players to scrape
