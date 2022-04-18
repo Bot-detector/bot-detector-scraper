@@ -4,27 +4,112 @@ import logging
 import sys
 import time
 from collections import deque
-from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 
 import aiohttp
 
 import config
 from helpers.Api import botDetectorApi
+from helpers.job import Job
 from helpers.Scraper import Scraper
 
 logger = logging.getLogger(__name__)
 
-
-@dataclass()
-class Job:
-    name: str
-    data: Optional[List[dict]] = None
-
-
 # global variables
 jobs = deque([Job("get_players_to_scrape")])
 results = []
+
+
+class Worker:
+    def __init__(self, proxy) -> None:
+        self.api = botDetectorApi(config.ENDPOINT, config.QUERY_SIZE, config.TOKEN)
+        self.scraper = Scraper(proxy)
+
+    async def work(self):
+        global jobs
+        global results
+
+        POST_INTERVAL = round(config.QUERY_SIZE * 0.1)
+        POST_INTERVAL = POST_INTERVAL if POST_INTERVAL > 100 else config.QUERY_SIZE
+        logger.debug(f"inserting in batches of {POST_INTERVAL}")
+        while True:
+            if len(jobs) == 0:
+                await asyncio.sleep(1)
+                continue
+
+            # take the first job
+            job = jobs.popleft()
+
+            if job.name == "get_players_to_scrape":
+                await self.__get_players_to_scrape(POST_INTERVAL)
+            elif job.name == "post_scraped_players":
+                await self.__post_scraped_players(job)
+            elif job.name == "process_hiscore" and job.data:
+                await self.__process_hiscore(job)
+
+    async def __get_players_to_scrape(self, POST_INTERVAL: int) -> None:
+        global jobs
+        # get_players_to_scrape
+        players = await self.api.get_players_to_scrape()
+        # for each player create a job to process the hiscore
+        for i, player in enumerate(players):
+            jobs.append(Job("process_hiscore", [player]))
+            # add a job to post the scraped data to the api
+            if i > 0 and i % POST_INTERVAL == 0:
+                jobs.append(Job("post_scraped_players"))
+        # add a job midway through the process hiscore jobs to get players to scrape
+        if len(jobs) < 2 * int(config.QUERY_SIZE):
+            jobs.insert(int(len(jobs) / 2), Job("get_players_to_scrape"))
+        logger.debug(f"Length of jobs: {len(jobs)}")
+        return
+
+    async def __post_scraped_players(self, job: Job) -> None:
+        global jobs
+        # copy the results
+        job.data = copy.deepcopy(results)
+        results = []
+        # posting data to api
+        await self.api.post_scraped_players(job.data)
+        # add a job to get players to scrape
+        jobs.append(Job("get_players_to_scrape"))
+        return
+
+    async def __process_hiscore(self, job: Job) -> None:
+        global results
+        player = job.data[0]
+        hiscore = await self.scraper.lookup_hiscores(player)
+
+        # data validation
+        if hiscore is None:
+            logger.warning(f"Hiscore is empty for {player.get('name')}")
+            return
+
+        # player is not on the hiscores
+        if "error" in hiscore:
+            # update additional metadata
+            player["possible_ban"] = 1
+            player["confirmed_player"] = 0
+            player = await self.scraper.lookup_runemetrics(player)
+
+            # data validation
+            if player is None:
+                logger.warning(f"Player is None, Player_id: {hiscore.get('Player_id')}")
+                return
+
+            output = {}
+            output["player"] = player
+            output["hiscores"] = None
+        else:
+            # update additional metadata
+            player["possible_ban"] = 0
+            player["confirmed_ban"] = 0
+            player["label_jagex"] = 0
+            player["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+
+            output = {}
+            output["player"] = player
+            output["hiscores"] = hiscore
+        results.append(output.copy())
 
 
 async def get_proxy_list() -> List:
@@ -51,96 +136,13 @@ async def get_proxy_list() -> List:
     return proxies
 
 
-async def create_worker(proxy):
-    """
-    This function is responsible for creating a worker that will process jobs.
-
-    The worker will process jobs in the following order:
-    1. get_players_to_scrape
-    2. process_hiscore
-    3. post_scraped_players
-
-    The worker will repeat the process until there are no more jobs to process.
-    """
-    global results
-
-    api = botDetectorApi(config.ENDPOINT, config.QUERY_SIZE, config.TOKEN)
-    scraper = Scraper(proxy)
-    while True:
-        if len(jobs) == 0:
-            await asyncio.sleep(1)
-            continue
-
-        # take the first job
-        job = jobs.popleft()
-
-        if job.name == "get_players_to_scrape":
-            # get_players_to_scrape
-            players = await api.get_players_to_scrape()
-            # for each player create a job to process the hiscore
-            for i, player in enumerate(players):
-                jobs.append(Job("process_hiscore", [player]))
-                # add a job to post the scraped data to the api
-                if i > 0 and i % 1000 == 0:
-                    jobs.append(Job("post_scraped_players"))
-            # add a job to post the scraped data to the api
-            jobs.append(Job("post_scraped_players"))
-            # add a job midway through the process hiscore jobs to get players to scrape
-            if len(jobs) < 2 * int(config.QUERY_SIZE):
-                jobs.insert(int(len(jobs) / 2), Job("get_players_to_scrape"))
-            logger.debug(f"Length of jobs: {len(jobs)}")
-        elif job.name == "post_scraped_players":
-            # copy the results
-            job.data = copy.deepcopy(results)
-            results = []
-            # posting data to api
-            await api.post_scraped_players(job.data)
-            # add a job to get players to scrape
-            jobs.append(Job("get_players_to_scrape"))
-        elif job.name == "process_hiscore" and job.data:
-            player = job.data[0]
-            hiscore = await scraper.lookup_hiscores(player)
-
-            # data validation
-            if hiscore is None:
-                logger.warning(f"Hiscore is empty for {player.get('name')}")
-                continue
-
-            # player is not on the hiscores
-            if "error" in hiscore:
-                # update additional metadata
-                player["possible_ban"] = 1
-                player["confirmed_player"] = 0
-                player = await scraper.lookup_runemetrics(player)
-                
-                # data validation
-                if player is None:
-                    logger.warning(f"Player is None, Player_id: {hiscore.get('Player_id')}")
-                    continue
-
-                output = {}
-                output["player"] = player
-                output["hiscores"] = None
-            else:
-                # update additional metadata
-                player["possible_ban"] = 0
-                player["confirmed_ban"] = 0
-                player["label_jagex"] = 0
-                player["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-
-                output = {}
-                output["player"] = player
-                output["hiscores"] = hiscore
-            results.append(output.copy())
-
-
 async def main():
     """
     This function is the main function of the program.
     It creates a list of proxies and then creates a worker for each proxy.
     """
     proxies = await get_proxy_list()
-    workers = [asyncio.create_task(create_worker(proxy)) for proxy in proxies]
+    workers = [asyncio.create_task(Worker(proxy).work()) for proxy in proxies]
     await asyncio.gather(*workers)
 
 

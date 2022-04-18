@@ -8,7 +8,7 @@ dotenv.load_dotenv()
 
 PROXY_DOWNLOAD_URL = os.getenv("PROXY_DOWNLOAD_URL")
 ENDPOINT = os.getenv("endpoint")
-QUERY_SIZE = os.getenv("QUERY_SIZE")
+QUERY_SIZE = int(os.getenv("QUERY_SIZE"))
 TOKEN = os.getenv("TOKEN")
 
 # setup logging

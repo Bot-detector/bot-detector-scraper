@@ -71,18 +71,17 @@ class Scraper:
                     elif response.status == 502:
                         logger.warning("502 proxy error")
                         await asyncio.sleep(1)
-                    elif response.status == 504:
-                        logger.warning("504 from hiscores")
+                    elif response.status in [500, 504, 520, 524]:
+                        logger.warning(f"{response.status} returned from hiscore_oldschool")
                         await asyncio.sleep(1)
                     else:
                         body = await response.text()
                         logger.error(
-                            f"unhandled status code {response.status} from RuneMetrics.  header: {response.headers}  body: {body}"
+                            f"unhandled status code {response.status} from hiscore_oldschool.  header: {response.headers}  body: {body}"
                         )
                         await asyncio.sleep(1)
         except Exception as e:
             logger.error(f"{e}, player: {player}")
-
             return None
 
 
@@ -158,7 +157,7 @@ class Scraper:
                     elif response.status == 502:
                         logger.warning("502 proxy error")
                         await asyncio.sleep(1)
-                    elif response.status in [504, 520, 524]:
+                    elif response.status in [500, 504, 520, 524]:
                         logger.warning(f"{response.status} returned from RuneMetrics")
                         await asyncio.sleep(1)
                     else:
