@@ -29,9 +29,6 @@ class Worker:
         global jobs
         global results
 
-        POST_INTERVAL = round(config.QUERY_SIZE * 0.1)
-        POST_INTERVAL = POST_INTERVAL if POST_INTERVAL > 100 else config.QUERY_SIZE
-        logger.debug(f"inserting in batches of {POST_INTERVAL}")
         while True:
             if len(jobs) == 0:
                 await asyncio.sleep(1)
@@ -41,7 +38,7 @@ class Worker:
             job = jobs.popleft()
 
             if job.name == "get_players_to_scrape":
-                await self.__get_players_to_scrape(POST_INTERVAL)
+                await self.__get_players_to_scrape(config.POST_INTERVAL)
             elif job.name == "post_scraped_players":
                 await self.__post_scraped_players(job)
             elif job.name == "process_hiscore" and job.data:
@@ -142,6 +139,7 @@ async def main():
     This function is the main function of the program.
     It creates a list of proxies and then creates a worker for each proxy.
     """
+    logger.info(f"inserting in batches of {config.POST_INTERVAL}")
     proxies = await get_proxy_list()
     workers = [asyncio.create_task(Worker(proxy).work()) for proxy in proxies]
     await asyncio.gather(*workers)

@@ -11,6 +11,9 @@ ENDPOINT = os.getenv("endpoint")
 QUERY_SIZE = int(os.getenv("QUERY_SIZE"))
 TOKEN = os.getenv("TOKEN")
 
+POST_INTERVAL = round(QUERY_SIZE * 0.1)
+POST_INTERVAL = POST_INTERVAL if POST_INTERVAL > 100 else QUERY_SIZE
+
 # setup logging
 file_handler = logging.FileHandler(filename="error.log", mode="a")
 stream_handler = logging.StreamHandler(sys.stdout)
