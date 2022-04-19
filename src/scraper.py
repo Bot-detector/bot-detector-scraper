@@ -28,26 +28,32 @@ class Worker:
     async def work(self):
         global jobs
         global results
+        async with aiohttp.ClientSession(timeout=config.SESSION_TIMEOUT) as session:
+            while True:
+                if len(jobs) == 0:
+                    await asyncio.sleep(1)
+                    continue
 
-        while True:
-            if len(jobs) == 0:
-                await asyncio.sleep(1)
-                continue
+                # take the first job
+                job = jobs.popleft()
 
-            # take the first job
-            job = jobs.popleft()
-
-            if job.name == "get_players_to_scrape":
-                await self.__get_players_to_scrape(config.POST_INTERVAL)
-            elif job.name == "post_scraped_players":
-                await self.__post_scraped_players(job)
-            elif job.name == "process_hiscore" and job.data:
-                await self.__process_hiscore(job)
+                if job.name == "get_players_to_scrape":
+                    await self.__get_players_to_scrape(config.POST_INTERVAL)
+                elif job.name == "post_scraped_players":
+                    await self.__post_scraped_players(job)
+                elif job.name == "process_hiscore" and job.data:
+                    await self.__process_hiscore(job, session)
 
     async def __get_players_to_scrape(self, POST_INTERVAL: int) -> None:
         global jobs
         # get_players_to_scrape
-        players = await self.api.get_players_to_scrape()
+        try:
+            players = await self.api.get_players_to_scrape()
+        except Exception as e:
+            logger.error(e)
+            asyncio.sleep(1)
+            self.__get_players_to_scrape(POST_INTERVAL)
+            return
         # for each player create a job to process the hiscore
         for i, player in enumerate(players):
             jobs.append(Job("process_hiscore", [player]))
@@ -65,17 +71,23 @@ class Worker:
         global results
         # copy the results
         job.data = copy.deepcopy(results)
-        results = []
         # posting data to api
-        await self.api.post_scraped_players(job.data)
+        try:
+            await self.api.post_scraped_players(job.data)
+        except Exception as e:
+            logger.error(e)
+            asyncio.sleep(1)
+            await self.__post_scraped_players(job)
+            return
+        results = []
         # add a job to get players to scrape
         jobs.append(Job("get_players_to_scrape"))
         return
 
-    async def __process_hiscore(self, job: Job) -> None:
+    async def __process_hiscore(self, job: Job, session:aiohttp.ClientSession) -> None:
         global results
         player = job.data[0]
-        hiscore = await self.scraper.lookup_hiscores(player)
+        hiscore = await self.scraper.lookup_hiscores(player, session)
 
         # data validation
         if hiscore is None:
@@ -87,7 +99,7 @@ class Worker:
             # update additional metadata
             player["possible_ban"] = 1
             player["confirmed_player"] = 0
-            player = await self.scraper.lookup_runemetrics(player)
+            player = await self.scraper.lookup_runemetrics(player, session)
 
             # data validation
             if player is None:

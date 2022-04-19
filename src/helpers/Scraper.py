@@ -9,8 +9,8 @@ from helpers.Inputs import Inputs
 
 logger = logging.getLogger(__name__)
 
-TIMEOUT_SECONDS = 1
-SESSION_TIMEOUT = aiohttp.ClientTimeout(total=None,sock_connect=TIMEOUT_SECONDS,sock_read=TIMEOUT_SECONDS)
+
+
 
 class SkipUsername(Exception):
     """
@@ -41,7 +41,7 @@ class Scraper:
                 await asyncio.sleep(sleep)
         return
 
-    async def lookup_hiscores(self, player: dict) -> dict:
+    async def lookup_hiscores(self, player: dict, session:aiohttp.ClientSession) -> dict:
         """
         Performs a hiscores lookup on the given player.
 
@@ -52,38 +52,36 @@ class Scraper:
         logger.debug(f"performing hiscores lookup on {player.get('name')}")
         url = f"https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws?player={player['name']}"
         try:
-            async with aiohttp.ClientSession(timeout=SESSION_TIMEOUT) as session:
-                async with session.get(url, proxy=self.proxy) as response:
-                    if response.status == 200:
-                        hiscore = await response.text()
-                        hiscore = await self.__parse_hiscores(hiscore)
-                        hiscore["Player_id"] = player["id"]
-                        return hiscore
-                    elif response.status == 403:
-                        logger.warning(f"403 bot challenge received proxy: {self.proxy}")
-                        # If we hit the bot challenge page just give up for now..
-                        await asyncio.sleep(1)
-                    elif response.status == 404:
-                        logger.debug(
-                            f"{player['name']} does not exist on hiscores. trying runemetrics"
-                        )
-                        return {"error": player}
-                    elif response.status == 502:
-                        logger.warning("502 proxy error")
-                        await asyncio.sleep(1)
-                    elif response.status in [500, 504, 520, 524]:
-                        logger.warning(f"{response.status} returned from hiscore_oldschool")
-                        await asyncio.sleep(1)
-                    else:
-                        body = await response.text()
-                        logger.error(
-                            f"unhandled status code {response.status} from hiscore_oldschool.  header: {response.headers}  body: {body}"
-                        )
-                        await asyncio.sleep(1)
+            async with session.get(url, proxy=self.proxy) as response:
+                if response.status == 200:
+                    hiscore = await response.text()
+                    hiscore = await self.__parse_hiscores(hiscore)
+                    hiscore["Player_id"] = player["id"]
+                    return hiscore
+                elif response.status == 403:
+                    logger.warning(f"403 bot challenge received proxy: {self.proxy}")
+                    # If we hit the bot challenge page just give up for now..
+                    await asyncio.sleep(1)
+                elif response.status == 404:
+                    logger.debug(
+                        f"{player['name']} does not exist on hiscores. trying runemetrics"
+                    )
+                    return {"error": player}
+                elif response.status == 502:
+                    logger.warning("502 proxy error")
+                    await asyncio.sleep(1)
+                elif response.status in [500, 504, 520, 524]:
+                    logger.warning(f"{response.status} returned from hiscore_oldschool")
+                    await asyncio.sleep(1)
+                else:
+                    body = await response.text()
+                    logger.error(
+                        f"unhandled status code {response.status} from hiscore_oldschool.  header: {response.headers}  body: {body}"
+                    )
+                    await asyncio.sleep(1)
         except Exception as e:
             logger.error(f"{e}, player: {player}")
             return None
-
 
     async def __parse_hiscores(self, hiscore: str) -> dict:
         """
@@ -121,7 +119,7 @@ class Scraper:
         hiscore = {k: int(v) for k, v in hiscore.items()}
         return hiscore
 
-    async def lookup_runemetrics(self, player: dict) -> dict:
+    async def lookup_runemetrics(self, player: dict, session:aiohttp.ClientSession) -> dict:
         """ "
         Performs a RuneMetrics lookup on the given player.
 
@@ -130,42 +128,41 @@ class Scraper:
         """
         url = f"https://apps.runescape.com/runemetrics/profile/profile?user={player.get('name')}"
         try:
-            async with aiohttp.ClientSession(timeout=SESSION_TIMEOUT) as session:
-                async with session.get(url, proxy=self.proxy) as response:
-                    if response.status == 200:
-                        logger.debug(f"found {player.get('name')} on runemetrics")
-                        data = await response.json()
-                        if "error" in data:
-                            error = data["error"]
-                            if error == "NO_PROFILE":
-                                # username is not associated to an account
-                                player["label_jagex"] = 1
-                            elif error == "NOT_A_MEMBER":
-                                player["label_jagex"] = 2  # account was perm banned
-                            elif error == "PROFILE_PRIVATE":
-                                # runemetrics is set to private.  either they're too low level or they're banned.
-                                player["label_jagex"] = 3
-                        else:
-                            # account is active, probably just too low stats for hiscores
-                            player["label_jagex"] = 0
-
-                        # API assigns this too, but jsut being safe
-                        player["updated_at"] = time.strftime(
-                            "%Y-%m-%d %H:%M:%S", time.gmtime()
-                        )
-                        return player
-                    elif response.status == 502:
-                        logger.warning("502 proxy error")
-                        await asyncio.sleep(1)
-                    elif response.status in [500, 504, 520, 524]:
-                        logger.warning(f"{response.status} returned from RuneMetrics")
-                        await asyncio.sleep(1)
+            async with session.get(url, proxy=self.proxy) as response:
+                if response.status == 200:
+                    logger.debug(f"found {player.get('name')} on runemetrics")
+                    data = await response.json()
+                    if "error" in data:
+                        error = data["error"]
+                        if error == "NO_PROFILE":
+                            # username is not associated to an account
+                            player["label_jagex"] = 1
+                        elif error == "NOT_A_MEMBER":
+                            player["label_jagex"] = 2  # account was perm banned
+                        elif error == "PROFILE_PRIVATE":
+                            # runemetrics is set to private.  either they're too low level or they're banned.
+                            player["label_jagex"] = 3
                     else:
-                        body = await response.text()
-                        logger.error(
-                            f"unhandled status code {response.status} from RuneMetrics.  header: {response.headers}  body: {body}"
-                        )
-                        await asyncio.sleep(1)
+                        # account is active, probably just too low stats for hiscores
+                        player["label_jagex"] = 0
+
+                    # API assigns this too, but jsut being safe
+                    player["updated_at"] = time.strftime(
+                        "%Y-%m-%d %H:%M:%S", time.gmtime()
+                    )
+                    return player
+                elif response.status == 502:
+                    logger.warning("502 proxy error")
+                    await asyncio.sleep(1)
+                elif response.status in [500, 504, 520, 524]:
+                    logger.warning(f"{response.status} returned from RuneMetrics")
+                    await asyncio.sleep(1)
+                else:
+                    body = await response.text()
+                    logger.error(
+                        f"unhandled status code {response.status} from RuneMetrics.  header: {response.headers}  body: {body}"
+                    )
+                    await asyncio.sleep(1)
         except Exception as e:
             logger.error(e)
             return None

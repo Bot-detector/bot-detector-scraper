@@ -3,6 +3,7 @@ import os
 import sys
 
 import dotenv
+import aiohttp
 
 dotenv.load_dotenv()
 
@@ -13,6 +14,11 @@ TOKEN = os.getenv("TOKEN")
 
 POST_INTERVAL = round(QUERY_SIZE * 0.1)
 POST_INTERVAL = POST_INTERVAL if POST_INTERVAL > 100 else QUERY_SIZE
+
+TIMEOUT_SECONDS = 1
+SESSION_TIMEOUT = aiohttp.ClientTimeout(
+    total=None, sock_connect=TIMEOUT_SECONDS, sock_read=TIMEOUT_SECONDS
+)
 
 # setup logging
 file_handler = logging.FileHandler(filename="error.log", mode="a")
