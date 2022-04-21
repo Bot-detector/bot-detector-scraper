@@ -52,7 +52,7 @@ class Worker:
         except Exception as e:
             logger.error(e)
             asyncio.sleep(1)
-            self.__get_players_to_scrape(POST_INTERVAL)
+            await self.__get_players_to_scrape(POST_INTERVAL)
             return
         # for each player create a job to process the hiscore
         for i, player in enumerate(players):
