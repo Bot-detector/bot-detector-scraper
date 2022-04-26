@@ -48,7 +48,7 @@ services:
       - PROXY_DOWNLOAD_URL=<YourProxyList>
       - TOKEN=verify_ban
       - QUERY_SIZE=100
-      - endpoint=127.0.0.1:5000
+      - endpoint=http://127.0.0.1:5000
     # env_file:
     #   - .env
     networks:
