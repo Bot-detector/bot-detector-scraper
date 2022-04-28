@@ -106,6 +106,7 @@ class Scraper:
             )
 
         hiscore = dict(zip(Inputs.skills + Inputs.minigames + Inputs.bosses, hiscore))
+        hiscore:dict = dict(zip(Inputs.skills + Inputs.minigames + Inputs.bosses, hiscore))
         # calculate the skills total as it might not be ranked
         hiscore["total"] = sum(
             [

@@ -51,7 +51,7 @@ class Worker:
             players = await self.api.get_players_to_scrape()
         except Exception as e:
             logger.error(e)
-            asyncio.sleep(5)
+            await asyncio.sleep(5)
             await self.__get_players_to_scrape(POST_INTERVAL)
             return
         # for each player create a job to process the hiscore
