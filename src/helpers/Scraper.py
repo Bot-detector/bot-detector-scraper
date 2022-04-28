@@ -10,8 +10,6 @@ from helpers.Inputs import Inputs
 logger = logging.getLogger(__name__)
 
 
-
-
 class SkipUsername(Exception):
     """
     used to indicate we want to pass this username off to the next available proxy to scrape
@@ -21,7 +19,7 @@ class SkipUsername(Exception):
 
 
 class Scraper:
-    def __init__(self, proxy: str, calls_per_minute: int = 30) -> None:
+    def __init__(self, proxy: str, calls_per_minute: int = 60) -> None:
         self.proxy = proxy
         self.history = deque(maxlen=calls_per_minute)
 
@@ -41,7 +39,9 @@ class Scraper:
                 await asyncio.sleep(sleep)
         return
 
-    async def lookup_hiscores(self, player: dict, session:aiohttp.ClientSession) -> dict:
+    async def lookup_hiscores(
+        self, player: dict, session: aiohttp.ClientSession
+    ) -> dict:
         """
         Performs a hiscores lookup on the given player.
 
@@ -105,8 +105,9 @@ class Scraper:
                 f"Unexpected hiscore size. Received: {len(hiscore)}, Expected: {expected_rows}"
             )
 
-        hiscore = dict(zip(Inputs.skills + Inputs.minigames + Inputs.bosses, hiscore))
-        hiscore:dict = dict(zip(Inputs.skills + Inputs.minigames + Inputs.bosses, hiscore))
+        hiscore: dict = dict(
+            zip(Inputs.skills + Inputs.minigames + Inputs.bosses, hiscore)
+        )
         # calculate the skills total as it might not be ranked
         hiscore["total"] = sum(
             [
@@ -120,7 +121,9 @@ class Scraper:
         hiscore = {k: int(v) for k, v in hiscore.items()}
         return hiscore
 
-    async def lookup_runemetrics(self, player: dict, session:aiohttp.ClientSession) -> dict:
+    async def lookup_runemetrics(
+        self, player: dict, session: aiohttp.ClientSession
+    ) -> dict:
         """ "
         Performs a RuneMetrics lookup on the given player.
 
