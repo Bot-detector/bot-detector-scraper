@@ -63,6 +63,8 @@ class Worker:
         # add a job midway through the process hiscore jobs to get players to scrape
         if len(jobs) < 2 * int(config.QUERY_SIZE):
             jobs.insert(int(len(jobs) / 2), Job("get_players_to_scrape"))
+        # add a post job at the end
+        jobs.append(Job("post_scraped_players"))
         logger.debug(f"Length of jobs: {len(jobs)}")
         return
 
@@ -76,7 +78,7 @@ class Worker:
             await self.api.post_scraped_players(job.data)
         except Exception as e:
             logger.error(e)
-            asyncio.sleep(1)
+            await asyncio.sleep(1)
             await self.__post_scraped_players(job)
             return
         results = []
