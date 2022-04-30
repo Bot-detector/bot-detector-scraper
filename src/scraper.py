@@ -49,6 +49,8 @@ class Worker:
         # get_players_to_scrape
         try:
             players = await self.api.get_players_to_scrape()
+            if len(players) < 1000:
+                await asyncio.sleep(300)
         except Exception as e:
             logger.error(e)
             await asyncio.sleep(5)
