@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 # global variables
 jobs = deque([Job("get_players_to_scrape")])
 results = []
-
+last_player_request = 0
+last_post_request = 0
 
 class Worker:
     def __init__(self, proxy) -> None:
@@ -30,62 +31,73 @@ class Worker:
         global results
         async with aiohttp.ClientSession(timeout=config.SESSION_TIMEOUT) as session:
             while True:
-                if len(jobs) == 0:
-                    await asyncio.sleep(1)
-                    continue
+                current_time = int(time.time())
+
+                # we got many results
+                if len(results) > config.POST_INTERVAL and last_post_request + 60 < current_time :
+                    if last_post_request + 60 < current_time:
+                        jobs.appendleft(Job("post_scraped_players"))
+                    else:
+                        sleep = last_post_request + 60 - current_time
+                        logger.info(f"Waiting to post players: {sleep} seconds")
+                        await asyncio.sleep(sleep)
+                        continue
+                # we do not have enough players to scrape
+                elif len(jobs) < config.POST_INTERVAL:
+                    if last_player_request + 60 < current_time:
+                        jobs.appendleft(Job("get_players_to_scrape"))
+                    else:
+                        sleep = last_player_request + 60 - current_time
+                        logger.info(f"Waiting to get new players: {sleep} seconds")
+                        await asyncio.sleep(sleep)
+                        continue
 
                 # take the first job
                 job = jobs.popleft()
 
                 if job.name == "get_players_to_scrape":
-                    await self.__get_players_to_scrape(config.POST_INTERVAL)
+                    await self.__get_players_to_scrape()
                 elif job.name == "post_scraped_players":
                     await self.__post_scraped_players(job)
                 elif job.name == "process_hiscore" and job.data:
                     await self.__process_hiscore(job, session)
 
-    async def __get_players_to_scrape(self, POST_INTERVAL: int) -> None:
+    async def __get_players_to_scrape(self) -> None:
         global jobs
-        # get_players_to_scrape
+        global last_player_request
+        
+        last_player_request = int(time.time())
+
         try:
             players = await self.api.get_players_to_scrape()
-            if len(players) < POST_INTERVAL:
-                await asyncio.sleep(300)
         except Exception as e:
             logger.error(e)
-            await asyncio.sleep(5)
-            await self.__get_players_to_scrape(POST_INTERVAL)
+            await asyncio.sleep(60)
+            await self.__get_players_to_scrape()
             return
-        # for each player create a job to process the hiscore
-        for i, player in enumerate(players):
+
+        for player in players:
             jobs.append(Job("process_hiscore", [player]))
-            # add a job to post the scraped data to the api
-            if i > 0 and i % POST_INTERVAL == 0:
-                jobs.append(Job("post_scraped_players"))
-        # add a job midway through the process hiscore jobs to get players to scrape
-        if len(jobs) < 2 * int(config.QUERY_SIZE):
-            jobs.insert(int(len(jobs) / 2), Job("get_players_to_scrape"))
-        # add a post job at the end
-        jobs.append(Job("post_scraped_players"))
-        logger.debug(f"Length of jobs: {len(jobs)}")
         return
 
     async def __post_scraped_players(self, job: Job) -> None:
         global jobs
         global results
+        global last_post_request
+
+        last_post_request = int(time.time())
         # copy the results
         job.data = copy.deepcopy(results)
+
         # posting data to api
         try:
             await self.api.post_scraped_players(job.data)
         except Exception as e:
             logger.error(e)
-            await asyncio.sleep(1)
+            await asyncio.sleep(60)
             await self.__post_scraped_players(job)
             return
         results = []
-        # add a job to get players to scrape
-        jobs.append(Job("get_players_to_scrape"))
         return
 
     async def __process_hiscore(self, job: Job, session:aiohttp.ClientSession) -> None:
@@ -132,7 +144,7 @@ async def get_proxy_list() -> List:
     output format: ['http://user:pass@ip:port', 'http://user:pass@ip:port', ...]
     """
     logger.info("fetching proxy list from webshare.io")
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(trust_env=True) as session:
         async with session.get(config.PROXY_DOWNLOAD_URL) as response:
             if response.status != 200:
                 logger.error(f"response status {response.status}")
