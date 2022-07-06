@@ -81,6 +81,7 @@ class Scraper:
                     await asyncio.sleep(1)
         except Exception as e:
             logger.error(f"{e}, player: {player}")
+            await asyncio.sleep(10)
             return None
 
     async def __parse_hiscores(self, hiscore: str) -> dict:
