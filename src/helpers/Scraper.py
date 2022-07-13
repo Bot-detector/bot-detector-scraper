@@ -57,6 +57,7 @@ class Scraper:
                     hiscore = await response.text()
                     hiscore = await self.__parse_hiscores(hiscore)
                     hiscore["Player_id"] = player["id"]
+                    # logger.debug(f"{player['name']}, {hiscore}")
                     return hiscore
                 elif response.status == 403:
                     logger.warning(f"403 bot challenge received proxy: {self.proxy}")

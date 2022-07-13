@@ -40,6 +40,7 @@ class Inputs:
         "cs_elite",
         "cs_master",
         "lms_rank",
+        "PvP Arena - Rank",
         "soul_wars_zeal",
         "rifts_closed",
     ]
