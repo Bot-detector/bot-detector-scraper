@@ -85,6 +85,8 @@ class Inputs:
         "theatre_of_blood",
         "theatre_of_blood_hard",
         "thermonuclear_smoke_devil",
+        "tombs_of_amascut",
+        "tombs_of_amascut_expert",
         "tzkal_zuk",
         "tztok_jad",
         "venenatis",
