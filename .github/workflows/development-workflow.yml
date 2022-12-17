@@ -22,14 +22,14 @@ jobs:
       - uses: actions/checkout@v2
       - name: Set Up ENV
         run: |
-          echo "${{ secrets.API_TOKEN }}" > .env
-          echo "${{ secrets.ENDPOINT }}" >> .env
-          echo "${{ secrets.PROXY_DOWNLOAD_URL }}" >> .env
-          echo "${{ secrets.QUERY_SIZE }}" >> .env
-          echo "${{ secrets.GRAVEYARD_WEBHOOK_URL }}" >> .env
+          echo "${{ secrets.API_TOKEN }}" > ./src/.env
+          echo "${{ secrets.ENDPOINT }}" >> ./src/.env
+          echo "${{ secrets.PROXY_DOWNLOAD_URL }}" >> ./src/.env
+          echo "${{ secrets.QUERY_SIZE }}" >> ./src/.env
+          echo "${{ secrets.GRAVEYARD_WEBHOOK_URL }}" >> ./src/.env
 
       - name: Build the Docker image
-        run: docker build . --file Dockerfile -t bot-detector/bd-scraper:latest
+        run: docker build . --file Dockerfile -t bot-detector/bd-scraper:latest --target production
 
       - name: Tag Image
         run: docker tag bot-detector/bd-scraper:latest hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
@@ -41,7 +41,7 @@ jobs:
         run: docker push hub.osrsbotdetector.com/bot-detector/bd-scraper:latest
 
       - name: Apply Possible Deployment Changes
-        run: kubectl apply -f bd-scraper-deploy.yaml
+        run: kubectl apply deployment/
 
       - name: Restart Deployment for Possible Container Changes
         run: kubectl rollout restart deploy bd-scraper

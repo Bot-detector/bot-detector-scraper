@@ -1,0 +1,16 @@
+version: '3'
+services:
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    container_name: bd-scraper
+    command: "python src/scraper.py"
+    env_file:
+      - .env
+    networks:
+      - botdetector-network
+
+networks:
+  botdetector-network:
