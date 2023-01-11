@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.10-slim as base
 
 # Keeps Python from generating .pyc files in the container
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -6,15 +6,19 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED=1
 
-# Install pip requirements
-COPY requirements.txt .
-RUN python -m pip install -r requirements.txt
-
+# set the working directory
 WORKDIR /project
-COPY . /project
 
-# Creates a non-root user with an explicit UID and adds permission to access the /app folder
-# For more info, please refer to https://aka.ms/vscode-docker-python-configure-containers
+# install dependencies
+COPY ./requirements.txt /project
+RUN pip install --no-cache-dir -r requirements.txt
+
+# copy the scripts to the folder
+COPY ./src /project/src
+
+# production image
+FROM base as production
+# Creates a non-root user with an explicit UID and adds permission to access the /project folder
 RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /project
 USER appuser
 
