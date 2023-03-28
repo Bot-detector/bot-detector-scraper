@@ -20,7 +20,7 @@ class botDetectorApi:
         """
         This method is used to get the players to scrape from the api.
         """
-        url = f"{self.endpoint}/scraper/players/0/{self.query_size}/{self.token}"
+        url = f"{self.endpoint}/v1/scraper/players/0/{self.query_size}/{self.token}"
         logger.info("fetching players to scrape")
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
@@ -36,7 +36,7 @@ class botDetectorApi:
         """
         This method is used to post the scraped players to the api.
         """
-        url = f"{self.endpoint}/scraper/hiscores/{self.token}"
+        url = f"{self.endpoint}/v1/scraper/hiscores/{self.token}"
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=data) as response:
                 if response.status != 200:
