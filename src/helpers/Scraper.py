@@ -4,8 +4,7 @@ import time
 from collections import deque
 
 import aiohttp
-
-from helpers.Inputs import Inputs
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +16,18 @@ class SkipUsername(Exception):
 
     pass
 
+hiscore_mapper = {
+    "league_points": "league",
+    "clue_scrolls_all": "cs_all",
+    "clue_scrolls_beginner": "cs_beginner",
+    "clue_scrolls_easy": "cs_easy",
+    "clue_scrolls_medium": "cs_medium",
+    "clue_scrolls_hard": "cs_hard",
+    "clue_scrolls_elite": "cs_elite",
+    "clue_scrolls_master": "cs_master",
+    "theatre_of_blood_hard_mode": "theatre_of_blood_hard",
+    "tombs_of_amascut_expert_mode": "tombs_of_amascut_expert"
+}
 
 class Scraper:
     def __init__(self, proxy: str, calls_per_minute: int = 60) -> None:
@@ -50,14 +61,14 @@ class Scraper:
         """
         await self.rate_limit()
         logger.debug(f"performing hiscores lookup on {player.get('name')}")
-        url = f"https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws?player={player['name']}"
+        url = f"https://secure.runescape.com/m=hiscore_oldschool/index_lite.json?player={player['name']}"
         try:
             async with session.get(url, proxy=self.proxy) as response:
                 if response.status == 200:
-                    hiscore = await response.text()
-                    hiscore = await self.__parse_hiscores(hiscore)
+                    hiscore = await response.json()
+                    hiscore = await self._parse_hiscores(hiscore)
+                    print(hiscore)
                     hiscore["Player_id"] = player["id"]
-                    # logger.debug(f"{player['name']}, {hiscore}")
                     return hiscore
                 elif response.status == 403:
                     logger.warning(f"403 bot challenge received proxy: {self.proxy}")
@@ -81,47 +92,47 @@ class Scraper:
                     )
                     await asyncio.sleep(1)
         except Exception as e:
-            logger.error(f"{e}, player: {player}")
+            tb_str = traceback.format_exc()  # get the stack trace as a string
+            logger.error(f"{e}, player: {player}\n{tb_str}")
             await asyncio.sleep(10)
             return None
 
-    async def __parse_hiscores(self, hiscore: str) -> dict:
-        """
-        Parses the hiscores response into a dictionary.
+    def _parse_hiscore_name(self, name: str) -> str:
+        name = name.lower()
+        name = name.replace("'","")
+        name = name.replace(" - "," ")
+        name = name.replace("-","_")
+        name = name.replace(":","")
+        name = name.replace("(","").replace(")","")
+        name = name.replace(" ","_")
+        #  replaces "name" with its corresponding abbreviation from "hiscore_mapper" dictionary, 
+        # if one exists, or keeps the original name if it does not
+        name = hiscore_mapper.get(name, name)
+        return name
 
-        :param hiscore: the hiscores response
-        :return: a dictionary containing the hiscores
-        """
-        # each row is seperated by a new line.
-        # each value is seperated by a comma.
-        # we only want the last value; the xp/kills
-        hiscore = [row.split(",")[-1] for row in hiscore.split("\n")]
+    def _parse_hiscore_stat(self, stat: int) -> int:
+        stat = 0 if stat == -1 else stat
+        return stat
 
-        # filter empty line (last line is empty)
-        hiscore = list(filter(None, hiscore))
+    async def _parse_hiscores(self, hiscore: dict) -> dict:
+        # Extract skill data from hiscore dictionary and create a new dictionary
+        skill_stats  = {
+            self._parse_hiscore_name(s["name"]): self._parse_hiscore_stat(s["xp"])
+            for s in hiscore.get('skills')
+        }
+        
+        # Calculate the sum of all skills and add it to the skills dictionary
+        skill_stats['total'] = sum([v for k, v in skill_stats.items() if k != 'total'])
 
-        # failsafe incase they update the hiscores
-        expected_rows = len(Inputs.skills + Inputs.minigames + Inputs.bosses)
-        if len(hiscore) != expected_rows:
-            raise Exception(
-                f"Unexpected hiscore size. Received: {len(hiscore)}, Expected: {expected_rows}"
-            )
+        # Extract activity data from hiscore dictionary and create a new dictionary
+        activity_stats  = {
+            self._parse_hiscore_name(a["name"]): self._parse_hiscore_stat(a["score"])
+            for a in hiscore.get('activities')
+        }
+        
+        # Merge the skills and activities dictionaries and return the result
+        return skill_stats | activity_stats
 
-        hiscore: dict = dict(
-            zip(Inputs.skills + Inputs.minigames + Inputs.bosses, hiscore)
-        )
-        # calculate the skills total as it might not be ranked
-        hiscore["total"] = sum(
-            [
-                int(hiscore[skill])
-                for skill in Inputs.skills[1:]
-                if int(hiscore[skill]) != -1
-            ]
-        )
-
-        # cast every value to integer
-        hiscore = {k: int(v) for k, v in hiscore.items()}
-        return hiscore
 
     async def lookup_runemetrics(
         self, player: dict, session: aiohttp.ClientSession
