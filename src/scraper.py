@@ -21,6 +21,7 @@ results = []
 last_player_request = 0
 last_post_request = 0
 
+
 class Worker:
     def __init__(self, proxy) -> None:
         self.api = botDetectorApi(config.ENDPOINT, config.QUERY_SIZE, config.TOKEN)
@@ -34,7 +35,10 @@ class Worker:
                 current_time = int(time.time())
 
                 # we got many results
-                if len(results) > config.POST_INTERVAL and last_post_request + 60 < current_time :
+                if (
+                    len(results) > config.POST_INTERVAL
+                    and last_post_request + 60 < current_time
+                ):
                     if last_post_request + 60 < current_time:
                         jobs.appendleft(Job("post_scraped_players"))
                     else:
@@ -55,17 +59,19 @@ class Worker:
                 # take the first job
                 job = jobs.popleft()
 
-                if job.name == "get_players_to_scrape":
-                    await self.__get_players_to_scrape()
-                elif job.name == "post_scraped_players":
-                    await self.__post_scraped_players(job)
-                elif job.name == "process_hiscore" and job.data:
-                    await self.__process_hiscore(job, session)
+                match job.name:
+                    case "get_players_to_scrape":
+                        await self._get_players_to_scrape()
+                    case "post_scraped_players":
+                        await self._post_scraped_players(job)
+                    case "process_hiscore":
+                        if job.data:
+                            await self._process_hiscore(job, session)
 
-    async def __get_players_to_scrape(self) -> None:
+    async def _get_players_to_scrape(self) -> None:
         global jobs
         global last_player_request
-        
+
         last_player_request = int(time.time())
 
         try:
@@ -73,14 +79,14 @@ class Worker:
         except Exception as e:
             logger.error(e)
             await asyncio.sleep(60)
-            await self.__get_players_to_scrape()
+            await self._get_players_to_scrape()
             return
 
-        for player in players:
-            jobs.append(Job("process_hiscore", [player]))
+        _job = "process_hiscore"
+        _ = [jobs.append(Job(_job, [player])) for player in players]
         return
 
-    async def __post_scraped_players(self, job: Job) -> None:
+    async def _post_scraped_players(self, job: Job) -> None:
         global jobs
         global results
         global last_post_request
@@ -95,12 +101,12 @@ class Worker:
         except Exception as e:
             logger.error(e)
             await asyncio.sleep(60)
-            await self.__post_scraped_players(job)
+            await self._post_scraped_players(job)
             return
         results = []
         return
 
-    async def __process_hiscore(self, job: Job, session:aiohttp.ClientSession) -> None:
+    async def _process_hiscore(self, job: Job, session: aiohttp.ClientSession) -> None:
         global results
         player = job.data[0]
         hiscore = await self.scraper.lookup_hiscores(player, session)
@@ -116,15 +122,6 @@ class Worker:
             player["possible_ban"] = 1
             player["confirmed_player"] = 0
             player = await self.scraper.lookup_runemetrics(player, session)
-
-            # data validation
-            if player is None:
-                logger.warning(f"Player is None, Player_id: {hiscore.get('Player_id')}")
-                return
-
-            output = {}
-            output["player"] = player
-            output["hiscores"] = None
         else:
             # update additional metadata
             player["possible_ban"] = 0
@@ -132,33 +129,55 @@ class Worker:
             player["label_jagex"] = 0
             player["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
 
-            output = {}
-            output["player"] = player
-            output["hiscores"] = hiscore
+        # data validation
+        if player is None:
+            logger.warning(f"Player is None, Player_id: {hiscore.get('Player_id')}")
+            return
+
+        output = {
+            "player": player,
+            "hiscores": None if "error" in hiscore else hiscore,
+        }
         results.append(output.copy())
 
 
-async def get_proxy_list() -> List:
+async def fetch_proxy_list(session: aiohttp.ClientSession) -> str:
     """
-    returns the proxy list from webshare.io
-    output format: ['http://user:pass@ip:port', 'http://user:pass@ip:port', ...]
+    Fetch the proxy list from webshare.io and return the response body as string.
+    """
+    async with session.get(config.PROXY_DOWNLOAD_URL) as response:
+        if response.status != 200:
+            logger.error(f"response status {response.status}")
+            logger.error(f"response body: {await response.text()}")
+            raise Exception("error fetching proxy list")
+        return await response.text()
+
+
+def parse_proxy_list(proxies_str: str) -> List[str]:
+    """
+    Parse the proxy list string and return a list of formatted proxy URLs.
+    """
+    proxies = proxies_str.splitlines()
+    proxies = [proxy.split(":") for proxy in proxies]
+    proxies = [
+        f"http://{proxy[2]}:{proxy[3]}@{proxy[0]}:{proxy[1]}" for proxy in proxies
+    ]
+    logger.info(f"fetched {len(proxies)} proxies")
+    return proxies
+
+
+async def get_proxy_list() -> List[str]:
+    """
+    Return a list of formatted proxy URLs from webshare.io.
     """
     logger.info("fetching proxy list from webshare.io")
     async with aiohttp.ClientSession(trust_env=True) as session:
-        async with session.get(config.PROXY_DOWNLOAD_URL) as response:
-            if response.status != 200:
-                logger.error(f"response status {response.status}")
-                logger.error(f"response body: {await response.text()}")
-                raise Exception("error fetching proxy list")
-
-            proxies = str(await response.text())
-            proxies = proxies.splitlines()
-            proxies = [proxy.split(":") for proxy in proxies]
-            proxies = [
-                f"http://{proxy[2]}:{proxy[3]}@{proxy[0]}:{proxy[1]}"
-                for proxy in proxies
-            ]
-            logger.info(f"fetched {len(proxies)} proxies")
+        try:
+            proxies_str = await fetch_proxy_list(session)
+            proxies = parse_proxy_list(proxies_str)
+        except Exception as e:
+            logger.error(str(e))
+            raise Exception("error fetching proxy list")
     return proxies
 
 
