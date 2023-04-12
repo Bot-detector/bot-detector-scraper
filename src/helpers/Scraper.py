@@ -67,7 +67,6 @@ class Scraper:
                 if response.status == 200:
                     hiscore = await response.json()
                     hiscore = await self._parse_hiscores(hiscore)
-                    print(hiscore)
                     hiscore["Player_id"] = player["id"]
                     return hiscore
                 elif response.status == 403:
