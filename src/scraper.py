@@ -24,7 +24,7 @@ last_post_request = 0
 
 class Worker:
     def __init__(self, proxy) -> None:
-        self.api = botDetectorApi(config.ENDPOINT, config.QUERY_SIZE, config.TOKEN)
+        self.api = botDetectorApi(config.ENDPOINT, config.QUERY_SIZE, config.TOKEN, config.MAX_BYTES)
         self.scraper = Scraper(proxy)
 
     async def work(self):

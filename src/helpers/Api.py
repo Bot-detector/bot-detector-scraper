@@ -1,7 +1,7 @@
 import logging
-from typing import List
 import json
 import aiohttp
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -11,12 +11,13 @@ class botDetectorApi:
     This class is used to interact with the bot detector api.
     """
 
-    def __init__(self, endpoint, query_size, token) -> None:
+    def __init__(self, endpoint:str, query_size:int, token:str, max_bytes: int) -> None:
         self.endpoint = endpoint
         self.query_size = query_size
         self.token = token
+        self.max_bytes = max_bytes
 
-    async def _split_data(self, data: list[dict], max_bytes: int) -> list[list[dict]]:
+    async def _split_data(self, data: list[dict]) -> list[list[dict]]:
         # initialize the list of chunks to return
         chunks = []
         # initialize the current chunk being processed
@@ -29,7 +30,7 @@ class botDetectorApi:
             # determine the size of the item
             item_size = len(json.dumps(item).encode('utf-8'))
             # if the size of the current chunk plus the size of the item exceeds the max bytes
-            if current_size + item_size > max_bytes:
+            if current_size + item_size > self.max_bytes:
                 # add the current chunk to the list of chunks
                 chunks.append(current_chunk)
 
@@ -70,11 +71,11 @@ class botDetectorApi:
         """
         This method is used to post the scraped players to the api.
         """
-        max_bytes = 5_000_000  # maximum payload size in bytes
-        chunks = await self._split_data(data, max_bytes)
-        logger.info(f"having {len(chunks)} chunks")
+        uuid_string = str(uuid.uuid4())
+        chunks = await self._split_data(data)
+        logger.info(f"having {len(chunks)} chunks, {uuid_string=}")
         for chunk in chunks:
-            logger.info(f"rows in chunk: {len(chunk)}")
+            logger.info(f"rows in chunk: {len(chunk)}, {uuid_string=}")
             url = f"{self.endpoint}/v1/scraper/hiscores/{self.token}"
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json=chunk) as response:
@@ -83,5 +84,5 @@ class botDetectorApi:
                         logger.error(f"response body: {await response.text()}")
                         raise Exception("error posting scraped players")
                     resp = await response.json()
-            logger.info(f"posted {len(chunk)} players")
+            logger.info(f"posted {len(chunk)} players, {uuid_string=}")
         return resp
