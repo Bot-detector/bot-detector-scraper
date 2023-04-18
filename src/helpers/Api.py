@@ -32,6 +32,9 @@ class botDetectorApi:
             if current_size + item_size > max_bytes:
                 # add the current chunk to the list of chunks
                 chunks.append(current_chunk)
+
+                logger.info(f"chunksize: {current_size}")
+
                 # reset the current chunk and size
                 current_chunk = []
                 current_size = 0
@@ -69,7 +72,9 @@ class botDetectorApi:
         """
         max_bytes = 5_000_000  # maximum payload size in bytes
         chunks = await self._split_data(data, max_bytes)
+        logger.info(f"having {len(chunks)} chunks")
         for chunk in chunks:
+            logger.info(f"rows in chunk: {len(chunk)}")
             url = f"{self.endpoint}/v1/scraper/hiscores/{self.token}"
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json=chunk) as response:
