@@ -126,7 +126,7 @@ class Scraper:
         # Extract skill data from hiscore dictionary and create a new dictionary
         skill_stats = {
             self._parse_hiscore_name(s["name"]): self._parse_hiscore_stat(s["xp"])
-            for s in hiscore.get("skills")
+            for s in hiscore.get("skills") if s["name"] != 'Overall'
         }
 
         # Calculate the sum of all skills and add it to the skills dictionary
