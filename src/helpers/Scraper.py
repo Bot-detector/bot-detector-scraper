@@ -132,7 +132,7 @@ class Scraper:
 
         # Calculate the sum of all skills and add it to the skills dictionary
         skill_stats["total"] = sum(
-            [v for k, v in skill_stats.items() if k not in ("total", "Overall")]
+            [v for k, v in skill_stats.items() if k not in ("total", "overall")]
         )
 
         # Extract activity data from hiscore dictionary and create a new dictionary
