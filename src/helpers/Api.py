@@ -2,6 +2,7 @@ import logging
 import json
 import aiohttp
 import uuid
+from itertools import cycle
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ class botDetectorApi:
         self.query_size = query_size
         self.token = token
         self.max_bytes = max_bytes
+        self.offset = cycle([0, 1, 2, 4, 5])
 
     async def _split_data(self, data: list[dict]) -> list[list[dict]]:
         # initialize the list of chunks to return
@@ -36,7 +38,7 @@ class botDetectorApi:
                 # add the current chunk to the list of chunks
                 chunks.append(current_chunk)
 
-                logger.info(f"chunksize: {current_size}")
+                # logger.info(f"chunksize: {current_size}")
 
                 # reset the current chunk and size
                 current_chunk = []
@@ -56,13 +58,15 @@ class botDetectorApi:
         """
         This method is used to get the players to scrape from the api.
         """
-        url = f"{self.endpoint}/v1/scraper/players/0/{self.query_size}/{self.token}"
+        url = f"{self.endpoint}/v1/scraper/players/{next(self.offset)}/{self.query_size}/{self.token}"
         logger.info("fetching players to scrape")
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
                 if response.status != 200:
-                    logger.error(f"response status {response.status}")
-                    logger.error(f"response body: {await response.text()}")
+                    logger.error(
+                        f"response status {response.status}"
+                        f"response body: {await response.text()}"
+                    )
                     raise Exception("error fetching players")
                 players = await response.json()
         logger.info(f"fetched {len(players)} players")
@@ -81,8 +85,10 @@ class botDetectorApi:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json=chunk) as response:
                     if response.status != 200:
-                        logger.error(f"response status {response.status}")
-                        logger.error(f"response body: {await response.text()}")
+                        logger.error(
+                            f"response status {response.status}\n"
+                            f"response body: {await response.text()}"
+                        )
                         raise Exception("error posting scraped players")
                     resp = await response.json()
             logger.info(f"posted {len(chunk)} players, {uuid_string=}")

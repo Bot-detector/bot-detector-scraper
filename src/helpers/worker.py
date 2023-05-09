@@ -20,7 +20,7 @@ class NewWorker:
             while True:
                 player: dict = self.manager.get_new_player()
                 if player is None:
-                    logger.info(f"{self.name=} is idle.")
+                    logger.info(f"worker={self.name} is idle.")
                     await asyncio.sleep(10)
                     continue
 

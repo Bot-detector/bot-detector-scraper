@@ -36,9 +36,10 @@ file_handler.setFormatter(formatter)
 
 handlers = [
     stream_handler, 
-    file_handler # this is good for debugging
+    # file_handler # this is good for debugging
 ]
 
 logging.basicConfig(level=logging.DEBUG, handlers=handlers)
 
 logging.getLogger("urllib3").setLevel(logging.INFO)
+# logging.getLogger("helpers.scraper").setLevel(logging.WARNING)
