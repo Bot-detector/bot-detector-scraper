@@ -11,7 +11,9 @@ class botDetectorApi:
     This class is used to interact with the bot detector api.
     """
 
-    def __init__(self, endpoint:str, query_size:int, token:str, max_bytes: int) -> None:
+    def __init__(
+        self, endpoint: str, query_size: int, token: str, max_bytes: int
+    ) -> None:
         self.endpoint = endpoint
         self.query_size = query_size
         self.token = token
@@ -28,7 +30,7 @@ class botDetectorApi:
         # loop through each item in the data list
         for item in data:
             # determine the size of the item
-            item_size = len(json.dumps(item).encode('utf-8'))
+            item_size = len(json.dumps(item).encode("utf-8"))
             # if the size of the current chunk plus the size of the item exceeds the max bytes
             if current_size + item_size > self.max_bytes:
                 # add the current chunk to the list of chunks
@@ -49,7 +51,6 @@ class botDetectorApi:
 
         # return the list of chunks
         return chunks
-
 
     async def get_players_to_scrape(self) -> list[dict]:
         """
