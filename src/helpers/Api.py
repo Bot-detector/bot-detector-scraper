@@ -3,6 +3,8 @@ import json
 import aiohttp
 import uuid
 from itertools import cycle
+from helpers.timer import timer
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,7 @@ class botDetectorApi:
         self.max_bytes = max_bytes
         self.offset = cycle([0, 1, 2, 4, 5])
 
+    @timer
     async def _split_data(self, data: list[dict]) -> list[list[dict]]:
         # initialize the list of chunks to return
         chunks = []
@@ -54,6 +57,7 @@ class botDetectorApi:
         # return the list of chunks
         return chunks
 
+    @timer
     async def get_players_to_scrape(self) -> list[dict]:
         """
         This method is used to get the players to scrape from the api.
@@ -72,24 +76,37 @@ class botDetectorApi:
         logger.info(f"fetched {len(players)} players")
         return players
 
-    async def post_scraped_players(self, data: list[dict]) -> list[dict]:
+    @timer
+    async def post_scraped_players(self, data: list[dict]) -> None:
         """
         This method is used to post the scraped players to the api.
         """
         uuid_string = str(uuid.uuid4())
         chunks = await self._split_data(data)
         logger.info(f"having {len(chunks)} chunks, {uuid_string=}")
-        for chunk in chunks:
-            logger.info(f"rows in chunk: {len(chunk)}, {uuid_string=}")
-            url = f"{self.endpoint}/v1/scraper/hiscores/{self.token}"
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=chunk) as response:
-                    if response.status != 200:
-                        logger.error(
-                            f"response status {response.status}\n"
-                            f"response body: {await response.text()}"
-                        )
-                        raise Exception("error posting scraped players")
-                    resp = await response.json()
-            logger.info(f"posted {len(chunk)} players, {uuid_string=}")
-        return resp
+        async with aiohttp.ClientSession() as session:
+            tasks = list()
+            for chunk in chunks:
+                tasks.append(
+                    asyncio.create_task(
+                        self._post_scraped_players(session, chunk, uuid_string)
+                    )
+                )
+            await asyncio.gather(*tasks)
+        return
+
+    @timer
+    async def _post_scraped_players(
+        self, session: aiohttp.ClientSession, chunk, uuid_string
+    ):
+        logger.info(f"rows in chunk: {len(chunk)}, {uuid_string=}")
+        url = f"{self.endpoint}/v1/scraper/hiscores/{self.token}"
+        async with session.post(url, json=chunk) as response:
+            if response.status != 200:
+                logger.error(
+                    f"response status {response.status}\n"
+                    f"response body: {await response.text()}"
+                )
+                raise Exception("error posting scraped players")
+        logger.info(f"posted {len(chunk)} players, {uuid_string=}")
+        return
