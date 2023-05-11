@@ -6,6 +6,7 @@ from collections import deque
 import config
 from helpers.api import botDetectorApi
 from helpers.worker import NewWorker
+from helpers.timer import timer
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,6 @@ class Manager:
                     continue
                 self.last_player_request = now
                 asyncio.create_task(self._get_players_to_scrape())
-                # players = await self._get_players_to_scrape()
             # if queue_players_highscores has more items than the post_interval
             elif len(self.queue_players_highscores) > post_interval:
                 now = int(time.time())
@@ -56,7 +56,7 @@ class Manager:
                 asyncio.create_task(self._post_scraped_players())
 
             await asyncio.sleep(10)
-
+    @timer
     async def _get_players_to_scrape(self) -> list[dict]:
         try:
             logger.info("get players to scrape")
@@ -79,7 +79,8 @@ class Manager:
             f"added {len(_players)}, total size: {len(self.queue_players)}"
         )
         return players
-
+    
+    @timer
     async def _post_scraped_players(self) -> None:
         try:
             logger.info("post scraped players")
