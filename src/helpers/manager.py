@@ -20,6 +20,8 @@ class Manager:
     api = botDetectorApi(
         config.ENDPOINT, config.QUERY_SIZE, config.TOKEN, config.MAX_BYTES
     )
+    post_lock = False
+    get_lock = False
 
     def __init__(self, proxies: list[str]) -> None:
         # initialize proxies
@@ -38,7 +40,7 @@ class Manager:
 
         while True:
             # if queue_players has less items than the post_interval
-            if len(self.queue_players) < config.QUERY_SIZE:
+            if len(self.queue_players) < config.QUERY_SIZE and self.get_lock == False:
                 now = int(time.time())
                 # check if it is time to make another request
                 if self.last_player_request + 60 > now:
@@ -46,7 +48,7 @@ class Manager:
                 self.last_player_request = now
                 asyncio.create_task(self._get_players_to_scrape())
             # if queue_players_highscores has more items than the post_interval
-            elif len(self.queue_players_highscores) > post_interval:
+            elif len(self.queue_players_highscores) > post_interval and self.post_lock == False:
                 now = int(time.time())
                 # check if it is time to make another request
                 if self.last_post_request + 60 > now:
@@ -58,6 +60,7 @@ class Manager:
             await asyncio.sleep(10)
     @timer
     async def _get_players_to_scrape(self) -> list[dict]:
+        self.get_lock = True
         try:
             logger.info("get players to scrape")
             # get players from bot detector API
@@ -78,10 +81,12 @@ class Manager:
         logger.info(
             f"added {len(_players)}, total size: {len(self.queue_players)}"
         )
+        self.get_lock = False
         return players
     
     @timer
     async def _post_scraped_players(self) -> None:
+        self.post_lock = True
         try:
             logger.info("post scraped players")
             # get a copy of the highscores data to be posted to bot detector API
@@ -96,6 +101,7 @@ class Manager:
             await asyncio.sleep(60)
             await self._post_scraped_players()
             return
+        self.post_lock = False
         return
 
     def add_scraped_highscore(self, highscore_data: dict):
