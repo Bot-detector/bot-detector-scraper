@@ -5,18 +5,15 @@ from collections import deque
 
 import aiohttp
 import traceback
-from typing import Union
+from aiohttp.client_exceptions import (
+    ServerTimeoutError,
+    ServerDisconnectedError,
+    ClientConnectorError,
+    ContentTypeError,
+    ClientOSError,
+)
 
 logger = logging.getLogger(__name__)
-
-
-class SkipUsername(Exception):
-    """
-    used to indicate we want to pass this username off to the next available proxy to scrape
-    """
-
-    pass
-
 
 hiscore_mapper = {
     "league_points": "league",
@@ -99,6 +96,16 @@ class Scraper:
                         )
                         await asyncio.sleep(1)
                 return None
+
+        except (
+            ServerTimeoutError,
+            ServerDisconnectedError,
+            ClientConnectorError,
+            ContentTypeError,
+            ClientOSError,
+        ):
+            logger.error(f"{e}, player: {player}")
+            return None
         except Exception as e:
             tb_str = traceback.format_exc()  # get the stack trace as a string
             logger.error(f"{e}, player: {player}\n{tb_str}")
@@ -193,7 +200,15 @@ class Scraper:
                             f"unhandled status code {response.status} from RuneMetrics. header: {response.headers} body: {body}"
                         )
                         await asyncio.sleep(1)
-
+        except (
+            ServerTimeoutError,
+            ServerDisconnectedError,
+            ClientConnectorError,
+            ContentTypeError,
+            ClientOSError,
+        ):
+            logger.error(f"{e}, player: {player}")
+            return None
         except Exception as e:
             tb_str = traceback.format_exc()  # get the stack trace as a string
             logger.error(f"{e}, player: {player}\n{tb_str}")
