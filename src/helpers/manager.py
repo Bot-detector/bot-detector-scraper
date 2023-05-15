@@ -19,8 +19,6 @@ class Manager:
     last_post_request = 0
     get_lock = False
     post_lock = False
-    get_players_to_scrape = False
-    post_scraped_players = False
     
 
     def __init__(self, proxies: list[str]) -> None:
