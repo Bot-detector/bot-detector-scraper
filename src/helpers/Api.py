@@ -62,7 +62,9 @@ class botDetectorApi:
         """
         This method is used to get the players to scrape from the api.
         """
-        url = f"{self.endpoint}/v1/scraper/players/{next(self.offset)}/{self.query_size}/{self.token}"
+        _offset = next(self.offset)
+        _offset = 0
+        url = f"{self.endpoint}/v1/scraper/players/{_offset}/{self.query_size}/{self.token}"
         logger.info("fetching players to scrape")
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:

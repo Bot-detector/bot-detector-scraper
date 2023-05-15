@@ -11,6 +11,5 @@ services:
       - .env
     networks:
       - botdetector-network
-
 networks:
   botdetector-network:
