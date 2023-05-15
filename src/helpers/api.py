@@ -21,7 +21,7 @@ class botDetectorApi:
         self.query_size = query_size
         self.token = token
         self.max_bytes = max_bytes
-        self.offset = cycle([0, 1, 2, 4, 5])
+
 
     @timer
     async def _split_data(self, data: list[dict]) -> list[list[dict]]:
@@ -62,7 +62,7 @@ class botDetectorApi:
         """
         This method is used to get the players to scrape from the api.
         """
-        url = f"{self.endpoint}/v1/scraper/players/{next(self.offset)}/{self.query_size}/{self.token}"
+        url = f"{self.endpoint}/v1/scraper/players/0/{self.query_size}/{self.token}"
         logger.info("fetching players to scrape")
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
