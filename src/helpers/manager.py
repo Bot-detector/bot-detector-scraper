@@ -13,15 +13,15 @@ logger = logging.getLogger(__name__)
 
 class Manager:
     # initialize queues, request times and bot detector api
-    queue_players = deque()
-    queue_players_highscores = deque()
+    queue_players = deque([])
+    queue_players_highscores = deque([])
     last_player_request = 0
     last_post_request = 0
-    api = botDetectorApi(
-        config.ENDPOINT, config.QUERY_SIZE, config.TOKEN, config.MAX_BYTES
-    )
-    post_lock = False
     get_lock = False
+    post_lock = False
+    get_players_to_scrape = False
+    post_scraped_players = False
+    
 
     def __init__(self, proxies: list[str]) -> None:
         # initialize proxies
@@ -29,6 +29,7 @@ class Manager:
 
     async def run(self, post_interval: int):
         logger.info("Running manager")
+        self.post_interval = post_interval
         # start workers for each proxy
         tasks = list()
         for proxy in self.proxies:
@@ -36,81 +37,65 @@ class Manager:
             tasks.append(
                 asyncio.create_task(worker.run(timeout=config.SESSION_TIMEOUT))
             )
-        asyncio.gather(*tasks)
-
-        while True:
-            # if queue_players has less items than the post_interval
-            if len(self.queue_players) < config.QUERY_SIZE and self.get_lock == False:
-                now = int(time.time())
-                # check if it is time to make another request
-                if self.last_player_request + 60 > now:
-                    continue
-                self.last_player_request = now
-                asyncio.create_task(self._get_players_to_scrape())
-            # if queue_players_highscores has more items than the post_interval
-            elif len(self.queue_players_highscores) > post_interval and self.post_lock == False:
-                now = int(time.time())
-                # check if it is time to make another request
-                if self.last_post_request + 60 > now:
-                    continue
-                self.last_post_request = now
-                # post scraped players to bot detector API
-                asyncio.create_task(self._post_scraped_players())
-
-            await asyncio.sleep(10)
-    @timer
-    async def _get_players_to_scrape(self) -> list[dict]:
+        await asyncio.gather(*tasks)
+    
+    async def get_players_task(self) -> bool:
+        if not len(self.queue_players) < config.QUERY_SIZE:
+            return False
+        
+        if self.get_lock:
+            return False
+        
+        now = int(time.time())
+        # check if it is time to make another request
+        if self.last_player_request + 60 > now:
+            return False
+        
+        self.last_player_request = now
         self.get_lock = True
-        try:
-            logger.info("get players to scrape")
-            # get players from bot detector API
-            players = await self.api.get_players_to_scrape()
-        except Exception as e:
-            logger.error(e)
-            # wait for 60 seconds and try again
-            await asyncio.sleep(60)
-            return
+        return True
+    
+    async def get_post_task(self) -> bool:
+        if not len(self.queue_players_highscores) > self.post_interval:
+            return False
         
-        if players is None:
-            await asyncio.sleep(60)
-            return
+        if self.post_lock:
+            return False
         
+        now = int(time.time())
+        # check if it is time to make another request
+        if self.last_post_request + 60 > now:
+            return False
+
+        self.last_post_request = now
+        self.post_lock = True
+        return True
+    
+    async def add_players(self, players: list[dict]):
         # add players to queue_players if not already in it
         _players = [p for p in players if p not in self.queue_players]
+
         _ = [self.queue_players.append(p) for p in _players]
         logger.info(
             f"added {len(_players)}, total size: {len(self.queue_players)}"
         )
         self.get_lock = False
-        return players
-    
-    @timer
-    async def _post_scraped_players(self) -> None:
-        self.post_lock = True
-        try:
-            logger.info("post scraped players")
-            # get a copy of the highscores data to be posted to bot detector API
-            data = list(self.queue_players_highscores).copy()
-            # post the data to bot detector API
-            await self.api.post_scraped_players(data)
-            # remove the players from queue_players that were successfully posted
-            _ = [self.queue_players.popleft() for _ in data]
-        except Exception as e:
-            logger.error(e)
-            # wait for 60 seconds and try again
-            await asyncio.sleep(60)
-            await self._post_scraped_players()
-            return
-        self.post_lock = False
         return
 
-    def add_scraped_highscore(self, highscore_data: dict):
-        # add highscore data to queue_players_highscores
+    async def add_highscores(self, highscore_data: dict):
         self.queue_players_highscores.append(highscore_data)
+        logger.info(f"{len(self.queue_players_highscores)=}")
         return
 
-    def get_new_player(self) -> dict:
+    async def get_player(self) -> dict:
         if len(self.queue_players) == 0:
             return None
-        # remove and return the first player from queue_players
         return self.queue_players.popleft()
+
+    async def get_post_data(self) -> list[dict]:
+        return list(self.queue_players_highscores).copy()
+    
+    async def remove_post_data(self, data:list[dict]):
+        _ = [self.queue_players_highscores.popleft() for _ in data]
+        self.post_lock = False
+        return

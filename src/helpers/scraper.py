@@ -103,7 +103,7 @@ class Scraper:
             ClientConnectorError,
             ContentTypeError,
             ClientOSError,
-        ):
+        ) as e:
             logger.error(f"{e}, player: {player}")
             return None
         except Exception as e:
@@ -206,7 +206,7 @@ class Scraper:
             ClientConnectorError,
             ContentTypeError,
             ClientOSError,
-        ):
+        ) as e:
             logger.error(f"{e}, player: {player}")
             return None
         except Exception as e:
