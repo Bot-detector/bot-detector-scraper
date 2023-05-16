@@ -15,6 +15,7 @@ MAX_BYTES = os.getenv("MAX_BYTES", 500_000)
 
 POST_INTERVAL = round(QUERY_SIZE * 0.1)
 POST_INTERVAL = POST_INTERVAL if POST_INTERVAL > 100 else QUERY_SIZE
+POST_INTERVAL = 100
 
 TIMEOUT_SECONDS = 10
 SESSION_TIMEOUT = aiohttp.ClientTimeout(
@@ -42,3 +43,4 @@ handlers = [
 logging.basicConfig(level=logging.DEBUG, handlers=handlers)
 
 logging.getLogger("urllib3").setLevel(logging.INFO)
+# logging.getLogger("helpers.scraper").setLevel(logging.WARNING)
