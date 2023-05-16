@@ -31,10 +31,12 @@ class NewWorker:
                 # check if it has to post players
                 # scrape players
                 if await self.manager.get_players_task():
-                    asyncio.create_task(self._get_data())
+                    # asyncio.create_task(self._get_data())
+                    await self._get_data()
                 elif await self.manager.get_post_task():
                     data = await self.manager.get_post_data()
-                    asyncio.create_task(self._post_data(data))
+                    await self._post_data(data)
+                    # asyncio.create_task(self._post_data(data))
                 else:
                     player: dict = await self.manager.get_player()
                     if player is None:

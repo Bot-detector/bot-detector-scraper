@@ -62,7 +62,7 @@ class Manager:
         
         now = int(time.time())
         # check if it is time to make another request
-        if self.last_post_request + 60 > now:
+        if self.last_post_request + 30 > now:
             return False
 
         self.last_post_request = now
@@ -82,7 +82,8 @@ class Manager:
 
     async def add_highscores(self, highscore_data: dict):
         self.queue_players_highscores.append(highscore_data)
-        logger.info(f"{len(self.queue_players_highscores)=}")
+        if len(self.queue_players_highscores) % 100 == 0:
+            logger.info(f"# scraped highscores: {len(self.queue_players_highscores)}")
         return
 
     async def get_player(self) -> dict:

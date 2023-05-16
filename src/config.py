@@ -11,11 +11,10 @@ PROXY_DOWNLOAD_URL = os.getenv("PROXY_DOWNLOAD_URL")
 ENDPOINT = os.getenv("endpoint")
 QUERY_SIZE = int(os.getenv("QUERY_SIZE"))
 TOKEN = os.getenv("TOKEN")
-MAX_BYTES = os.getenv("MAX_BYTES", 500_000)
+MAX_BYTES = os.getenv("MAX_BYTES", 1_000_000)
 
 POST_INTERVAL = round(QUERY_SIZE * 0.1)
 POST_INTERVAL = POST_INTERVAL if POST_INTERVAL > 100 else QUERY_SIZE
-POST_INTERVAL = 100
 
 TIMEOUT_SECONDS = 10
 SESSION_TIMEOUT = aiohttp.ClientTimeout(
@@ -43,4 +42,4 @@ handlers = [
 logging.basicConfig(level=logging.DEBUG, handlers=handlers)
 
 logging.getLogger("urllib3").setLevel(logging.INFO)
-# logging.getLogger("helpers.scraper").setLevel(logging.WARNING)
+logging.getLogger("helpers.scraper").setLevel(logging.WARNING)

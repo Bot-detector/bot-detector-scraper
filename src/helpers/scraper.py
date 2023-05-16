@@ -60,7 +60,7 @@ class Scraper:
         :return: a dictionary containing the player's hiscores.  if the player does not exist on hiscores, returns a dictionary of the player
         """
         await self.rate_limit()
-        logger.debug(f"performing hiscores lookup on {player.get('name')}")
+        logger.info(f"performing hiscores lookup on {player.get('name')}")
         url = f"https://secure.runescape.com/m=hiscore_oldschool/index_lite.json?player={player['name']}"
         try:
             async with session.get(url, proxy=self.proxy) as response:
@@ -165,7 +165,7 @@ class Scraper:
             async with session.get(url, proxy=self.proxy) as response:
                 match response.status:
                     case 200:
-                        logger.debug(f"found {player.get('name')} on runemetrics")
+                        logger.info(f"found {player.get('name')} on runemetrics")
                         data: dict = await response.json()
                         match data.get("error"):
                             case "NO_PROFILE":
