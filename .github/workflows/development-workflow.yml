@@ -5,6 +5,13 @@ on:
     branches: [develop]
 
 jobs:
+  token:
+    runs-on: self-hosted
+    steps:
+      - name: test env security
+        run: |
+          echo "${{ secrets.THEREALNOOB }}"
+          
   blacken:
     runs-on: self-hosted
     steps:
