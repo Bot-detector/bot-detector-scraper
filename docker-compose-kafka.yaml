@@ -7,16 +7,21 @@ services:
       - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
       - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+    volumes:
+      - ./kafka:/bitnami/kafka:rw
     ports:
       - 9094:9094
     networks:
       - botdetector-network
-  
-  python_test:
-    image: python:3.10-slim
-    tty: true
-    volumes:
-      - ./src_kafka:/project
+
+  kafdrop: 
+    image: obsidiandynamics/kafdrop:latest
+    environment:
+      - KAFKA_BROKERCONNECT=kafka:9092
+      - JVM_OPTS=-Xms32M -Xmx64M
+      - SERVER_SERVLET_CONTEXTPATH=/
+    ports:
+      - 9000:9000
     networks:
       - botdetector-network
 

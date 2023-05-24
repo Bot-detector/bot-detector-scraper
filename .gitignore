@@ -131,3 +131,5 @@ dmypy.json
 test.py
 docker-compose.yml
 docker-compose.yml
+
+kafka/
