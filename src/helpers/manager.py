@@ -53,6 +53,7 @@ class Manager:
         return True
 
     async def get_post_task(self) -> bool:
+        delay = 10
         if not len(self.queue_players_highscores) > self.post_interval:
             return False
 
@@ -61,7 +62,7 @@ class Manager:
 
         now = int(time.time())
         # check if it is time to make another request
-        if self.last_post_request + 30 > now:
+        if self.last_post_request + delay > now:
             return False
 
         self.last_post_request = now

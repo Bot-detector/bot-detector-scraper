@@ -23,10 +23,11 @@ class NewWorker:
         self.api = botDetectorApi(
             config.ENDPOINT, config.QUERY_SIZE, config.TOKEN, config.MAX_BYTES
         )
+        self.active = True
 
     async def run(self, timeout: int):
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            while True:
+            while self.active:
                 # check if it has to get new players
                 # check if it has to post players
                 # scrape players
@@ -36,6 +37,7 @@ class NewWorker:
                 elif await self.manager.get_post_task():
                     data = await self.manager.get_post_data()
                     await self._post_data(data)
+                    self.manager.post_lock = False
                     # asyncio.create_task(self._post_data(data))
                 else:
                     player: dict = await self.manager.get_player()
@@ -51,6 +53,11 @@ class NewWorker:
     async def _scrape_data(self, session: aiohttp.ClientSession, player: dict):
         hiscore = await self.scraper.lookup_hiscores(player, session)
 
+        if hiscore == "ClientHttpProxyError":
+            logger.warning(f"ClientHttpProxyError killing worker name={self.name}")
+            self.active = False
+            return
+        
         # data validation
         if hiscore is None:
             logger.warning(f"Hiscore is empty for {player.get('name')}")

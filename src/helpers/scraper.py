@@ -11,6 +11,7 @@ from aiohttp.client_exceptions import (
     ClientConnectorError,
     ContentTypeError,
     ClientOSError,
+    ClientHttpProxyError,
 )
 
 logger = logging.getLogger(__name__)
@@ -96,7 +97,8 @@ class Scraper:
                         )
                         await asyncio.sleep(1)
                 return None
-
+        except ClientHttpProxyError:
+            return "ClientHttpProxyError"
         except (
             ServerTimeoutError,
             ServerDisconnectedError,
@@ -206,6 +208,7 @@ class Scraper:
             ClientConnectorError,
             ContentTypeError,
             ClientOSError,
+            ClientHttpProxyError
         ) as e:
             logger.error(f"{e}, player: {player}")
             return None
