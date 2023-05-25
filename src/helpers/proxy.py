@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProxyManager:
-    def __init__(self, PROXY_DOWNLOAD_URL:str) -> None:
+    def __init__(self, PROXY_DOWNLOAD_URL: str) -> None:
         self.PROXY_DOWNLOAD_URL = PROXY_DOWNLOAD_URL
 
     async def _fetch_proxy_list(self, session: aiohttp.ClientSession) -> str:
@@ -29,7 +29,7 @@ class ProxyManager:
             f"http://{proxy[2]}:{proxy[3]}@{proxy[0]}:{proxy[1]}" for proxy in proxies
         ]
         logger.info(f"fetched {len(proxies)} proxies")
-        
+
         return proxies
 
     async def get_proxy_list(self) -> list[str]:

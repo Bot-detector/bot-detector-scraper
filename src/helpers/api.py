@@ -22,7 +22,6 @@ class botDetectorApi:
         self.token = token
         self.max_bytes = max_bytes
 
-
     @timer
     async def _split_data(self, data: list[dict]) -> list[list[dict]]:
         # initialize the list of chunks to return

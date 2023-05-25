@@ -48,7 +48,7 @@ class NewWorker:
                             await self.manager.add_highscores(scraped_data)
                 await asyncio.sleep(1)
 
-    async def _scrape_data(self, session: aiohttp.ClientSession, player:dict):
+    async def _scrape_data(self, session: aiohttp.ClientSession, player: dict):
         hiscore = await self.scraper.lookup_hiscores(player, session)
 
         # data validation
@@ -90,8 +90,6 @@ class NewWorker:
             logger.error(f"{str(e)}")
             # wait for 60 seconds and try again
             await asyncio.sleep(60)
-        # remove the players from queue_players that were successfully posted
-        await self.manager.remove_post_data(data)
         return
 
     async def _get_data(self):

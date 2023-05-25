@@ -7,6 +7,7 @@ from helpers.proxy import ProxyManager
 
 logger = logging.getLogger(__name__)
 
+
 async def main():
     """
     This function is the main function of the program.
@@ -19,6 +20,7 @@ async def main():
 
     general_manager = Manager(proxies)
     await general_manager.run(config.POST_INTERVAL)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

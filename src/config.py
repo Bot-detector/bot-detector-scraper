@@ -35,7 +35,7 @@ stream_handler.setFormatter(formatter)
 file_handler.setFormatter(formatter)
 
 handlers = [
-    stream_handler, 
+    stream_handler,
     # file_handler # this is good for debugging
 ]
 
