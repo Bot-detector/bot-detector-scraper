@@ -21,4 +21,4 @@ handlers = [
 logging.basicConfig(level=logging.DEBUG, handlers=handlers)
 
 logging.getLogger("urllib3").setLevel(logging.INFO)
-logging.getLogger("helpers.scraper").setLevel(logging.WARNING)
+logging.getLogger("modules.scraper").setLevel(logging.WARNING)
