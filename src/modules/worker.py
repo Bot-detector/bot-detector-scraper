@@ -1,19 +1,21 @@
-import uuid
-
-from helpers.scraper import Scraper
-import aiohttp
 import asyncio
 import logging
 import time
-from helpers.api import botDetectorApi
-import config
+import uuid
 from typing import TYPE_CHECKING
+
+import aiohttp
 from aiohttp import ClientSession
+
+import config.config as config
+from config.config import app_config
+from modules.bot_detector_api import botDetectorApi
+from modules.scraper import Scraper
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from helpers.manager import Manager
+    from modules.manager import Manager
 
 
 class NewWorker:
@@ -22,7 +24,10 @@ class NewWorker:
         self.manager: Manager = manager
         self.name: str = str(uuid.uuid4())
         self.api: botDetectorApi = botDetectorApi(
-            config.ENDPOINT, config.QUERY_SIZE, config.TOKEN, config.MAX_BYTES
+            app_config.ENDPOINT,
+            app_config.QUERY_SIZE,
+            app_config.TOKEN,
+            app_config.MAX_BYTES,
         )
         self.active: bool = True
 

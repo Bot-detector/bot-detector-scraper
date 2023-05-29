@@ -79,7 +79,7 @@ target/
 
 # IPython
 profile_default/
-ipython_config.py
+ipython_app_config.py
 
 # pyenv
 .python-version
@@ -131,3 +131,5 @@ dmypy.json
 test.py
 docker-compose.yml
 docker-compose.yml
+
+src/test.py

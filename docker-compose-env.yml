@@ -6,11 +6,7 @@ services:
       dockerfile: Dockerfile
       target: base
     container_name: bd-scraper
-    command: "python src/main.py"
+    # command: "python src/main.py"
+    command: sleep infinity
     env_file:
       - .env
-    networks:
-      - botdetector-network
-
-networks:
-  botdetector-network:

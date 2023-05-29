@@ -4,6 +4,7 @@ import time
 from collections import deque
 
 import aiohttp
+from aiohttp import ClientSession
 import traceback
 from aiohttp.client_exceptions import (
     ServerTimeoutError,
@@ -208,7 +209,7 @@ class Scraper:
             ClientConnectorError,
             ContentTypeError,
             ClientOSError,
-            ClientHttpProxyError
+            ClientHttpProxyError,
         ) as e:
             logger.error(f"{e}, player: {player}")
             return None

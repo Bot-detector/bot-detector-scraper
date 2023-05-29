@@ -3,10 +3,9 @@ import logging
 import time
 from collections import deque
 
-import config
-from helpers.api import botDetectorApi
-from helpers.worker import NewWorker
-from helpers.timer import timer
+import config.config as config
+from config.config import app_config
+from modules.worker import NewWorker
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +31,12 @@ class Manager:
         for proxy in self.proxies:
             worker = NewWorker(proxy, self)
             tasks.append(
-                asyncio.create_task(worker.run(timeout=config.SESSION_TIMEOUT))
+                asyncio.create_task(worker.run(timeout=app_config.SESSION_TIMEOUT))
             )
         await asyncio.gather(*tasks)
 
     async def get_players_task(self) -> bool:
-        if not len(self.queue_players) < config.QUERY_SIZE:
+        if not len(self.queue_players) < app_config.QUERY_SIZE:
             return False
 
         if self.get_lock:

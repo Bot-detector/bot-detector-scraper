@@ -2,8 +2,7 @@ import logging
 import json
 import aiohttp
 import uuid
-from itertools import cycle
-from helpers.timer import timer
+from utils.timer import timer
 import asyncio
 
 logger = logging.getLogger(__name__)
