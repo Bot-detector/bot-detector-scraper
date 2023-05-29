@@ -2,11 +2,10 @@ import asyncio
 import logging
 import time
 from collections import deque
-import aiohttp
 from http.client import responses
 from aiohttp import ClientSession, ClientResponse
 from utils.http_exception_handler import http_exception_handler
-
+from modules.validation.player import Player
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +45,7 @@ class Scraper:
         return
 
     async def _handle_response_status(
-        self, response: ClientResponse, player: dict, source_function: str
+        self, response: ClientResponse, player: Player, source_function: str
     ) -> dict:
         status = response.status
         status_code = responses.get(status)
@@ -57,7 +56,7 @@ class Scraper:
             case 404:
                 if source_function == "lookup_highscores":
                     logger.debug(
-                        f"{player.get('name')} does not exist on hiscores. trying runemetrics"
+                        f"{player.name} does not exist on hiscores. trying runemetrics"
                     )
                     return {"error": player}
                 logger.warning(f"{source_function} returned {status}-{status_code}")
@@ -111,12 +110,14 @@ class Scraper:
         return skill_stats | activity_stats
 
     @http_exception_handler
-    async def lookup_hiscores(self, player: dict, session: ClientSession) -> dict:
+    async def lookup_hiscores(self, player: Player, session: ClientSession) -> dict:
         await self.rate_limit()
-        player_name = player.get("name")
+        player_name = player.name
         logger.info(f"Performing hiscores lookup on {player_name}")
         base_url = "https://secure.runescape.com/m=hiscore_oldschool/index_lite.json"
         url = f"{base_url}?player={player_name}"
+
+        assert isinstance(session, ClientSession)
 
         async with session.get(url, proxy=self.proxy) as response:
             data = await self._handle_response_status(response, player, "lookup_highscores")
@@ -128,12 +129,12 @@ class Scraper:
                 return data
 
             hiscore = await self._parse_hiscores(data)
-            hiscore["Player_id"] = player["id"]
+            hiscore["Player_id"] = player.id
             return hiscore
 
     @http_exception_handler
     async def lookup_runemetrics(
-        self, player: dict, session: aiohttp.ClientSession
+        self, player: Player, session: ClientSession
     ) -> dict:
         """
         Performs a RuneMetrics lookup on the given player.
@@ -141,7 +142,7 @@ class Scraper:
         :param player: a dictionary containing the player's name and id
         :return: a dictionary containing the player's RuneMetrics data
         """
-        player_name = player.get("name")
+        player_name = player.name
         base_url = "https://apps.runescape.com/runemetrics/profile/profile"
         url = f"{base_url}?user={player_name}"
 
@@ -156,16 +157,16 @@ class Scraper:
             match data.get("error"):
                 case "NO_PROFILE":
                     # username is not associated to an account
-                    player["label_jagex"] = 1
+                    player.label_jagex = 1
                 case "NOT_A_MEMBER":
                     # account is perm banned
-                    player["label_jagex"] = 2  
+                    player.label_jagex = 2  
                 case "PROFILE_PRIVATE":
                     # runemetrics is set to private. either they're too low level or they're banned.
-                    player["label_jagex"] = 3
+                    player.label_jagex = 3
                 case _:
                     # account is active, probably just too low stats for hiscores
-                    player["label_jagex"] = 0
+                    player.label_jagex = 0
             # API assigns this too, but just being safe
-            player["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+            player.updated_at = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
             return player
