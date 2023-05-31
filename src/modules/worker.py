@@ -65,7 +65,7 @@ class NewWorker:
 
         if "error" in hiscore:
             player.possible_ban = 1
-            player.confirmed_ban = 1
+            player.confirmed_ban = 0
             player.confirmed_player = 0
             player = await self.scraper.lookup_runemetrics(player, session)
         else:
