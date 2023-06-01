@@ -3,27 +3,23 @@ import logging
 import time
 from collections import deque
 
-import config
-from helpers.api import botDetectorApi
-from helpers.worker import NewWorker
-from helpers.timer import timer
+import config.config as config
+from config.config import app_config
+from modules.worker import NewWorker
+from modules.validation.player import Player
 
 logger = logging.getLogger(__name__)
 
 
 class Manager:
-    # initialize queues, request times and bot detector api
-    queue_players = deque([])
-    queue_players_highscores = deque([])
-    last_player_request = 0
-    last_post_request = 0
-    get_lock = False
-    post_lock = False
-    
-
     def __init__(self, proxies: list[str]) -> None:
-        # initialize proxies
         self.proxies = proxies
+        self.queue_players = deque([])
+        self.queue_players_highscores = deque([])
+        self.last_player_request = 0
+        self.last_post_request = 0
+        self.get_lock = False
+        self.post_lock = False
 
     async def run(self, post_interval: int):
         logger.info("Running manager")
@@ -33,50 +29,58 @@ class Manager:
         for proxy in self.proxies:
             worker = NewWorker(proxy, self)
             tasks.append(
-                asyncio.create_task(worker.run(timeout=config.SESSION_TIMEOUT))
+                asyncio.create_task(worker.run(timeout=app_config.SESSION_TIMEOUT))
             )
         await asyncio.gather(*tasks)
-    
+
     async def get_players_task(self) -> bool:
-        if not len(self.queue_players) < config.QUERY_SIZE:
+        if not len(self.queue_players) < app_config.QUERY_SIZE:
             return False
-        
+
         if self.get_lock:
             return False
-        
+
         now = int(time.time())
         # check if it is time to make another request
         if self.last_player_request + 60 > now:
             return False
-        
+
         self.last_player_request = now
         self.get_lock = True
         return True
-    
+
     async def get_post_task(self) -> bool:
+        delay = 10
         if not len(self.queue_players_highscores) > self.post_interval:
             return False
-        
+
         if self.post_lock:
             return False
-        
+
         now = int(time.time())
         # check if it is time to make another request
-        if self.last_post_request + 30 > now:
+        if self.last_post_request + delay > now:
             return False
 
         self.last_post_request = now
         self.post_lock = True
         return True
-    
-    async def add_players(self, players: list[dict]):
-        # add players to queue_players if not already in it
-        _players = [p for p in players if p not in self.queue_players]
 
-        _ = [self.queue_players.append(p) for p in _players]
-        logger.info(
-            f"added {len(_players)}, total size: {len(self.queue_players)}"
-        )
+    async def add_players(self, players: list[Player]):
+        # add players to queue_players if not already in it
+        count = 0
+        queue = asyncio.Queue()
+        # this did not like to be a pydantic class
+        _ = [await queue.put(p.dict()) for p in players]
+
+        while not queue.empty():
+            _player = await queue.get()
+            if _player in self.queue_players:
+                continue
+            self.queue_players.append(_player)
+            count += 1
+
+        logger.info(f"added {count}, total size: {len(self.queue_players)}")
         self.get_lock = False
         return
 
@@ -86,15 +90,12 @@ class Manager:
             logger.info(f"# scraped highscores: {len(self.queue_players_highscores)}")
         return
 
-    async def get_player(self) -> dict:
+    async def get_player(self) -> Player:
         if len(self.queue_players) == 0:
             return None
         return self.queue_players.popleft()
 
     async def get_post_data(self) -> list[dict]:
-        return list(self.queue_players_highscores).copy()
-    
-    async def remove_post_data(self, data:list[dict]):
-        _ = [self.queue_players_highscores.popleft() for _ in data]
-        self.post_lock = False
-        return
+        data = list(self.queue_players_highscores)
+        self.queue_players_highscores = deque([])
+        return data

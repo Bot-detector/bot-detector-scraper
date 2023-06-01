@@ -1,10 +1,12 @@
-import logging
-import json
-import aiohttp
-import uuid
-from itertools import cycle
-from helpers.timer import timer
 import asyncio
+import json
+import logging
+import uuid
+
+import aiohttp
+
+from modules.validation.player import Player
+from utils.timer import timer
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +23,6 @@ class botDetectorApi:
         self.query_size = query_size
         self.token = token
         self.max_bytes = max_bytes
-
 
     @timer
     async def _split_data(self, data: list[dict]) -> list[list[dict]]:
@@ -58,7 +59,7 @@ class botDetectorApi:
         return chunks
 
     @timer
-    async def get_players_to_scrape(self) -> list[dict]:
+    async def get_players_to_scrape(self) -> list[Player]:
         """
         This method is used to get the players to scrape from the api.
         """
@@ -74,6 +75,7 @@ class botDetectorApi:
                     raise Exception("error fetching players")
                 players = await response.json()
         logger.info(f"fetched {len(players)} players")
+        players = [Player(**player) for player in players]
         return players
 
     @timer
