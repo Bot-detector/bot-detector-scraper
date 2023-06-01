@@ -12,6 +12,7 @@ from config.config import app_config
 from modules.bot_detector_api import botDetectorApi
 from modules.scraper import Scraper
 from modules.validation.player import Player
+from modules.kafka import Kafka
 
 logger = logging.getLogger(__name__)
 
@@ -31,24 +32,13 @@ class NewWorker:
             app_config.MAX_BYTES,
         )
         self.active: bool = True
+        self.kafka = Kafka("localhost:9094", "scraper")
 
     async def run(self, timeout: int):
         async with aiohttp.ClientSession(timeout=timeout) as session:
             while self.active:
-                if await self.manager.get_players_task():
-                    await self._get_data()
-                elif await self.manager.get_post_task():
-                    data = await self.manager.get_post_data()
-                    await self._post_data(data)
-                    self.manager.post_lock = False
-                else:
-                    player = await self.manager.get_player()
-                    
-                    if player is None:
-                        logger.info(f"worker={self.name} is idle.")
-                        await asyncio.sleep(60)
-                    else:
-                        await self._scrape_data(session, Player(**player))
+                player = await self.kafka.consume_message()
+                await self._scrape_data(session, Player(**player))
                 await asyncio.sleep(1)
 
     async def _scrape_data(self, session: ClientSession, player: Player):

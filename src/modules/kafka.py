@@ -1,7 +1,7 @@
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
 
 
-class kafka:
+class Kafka:
     def __init__(self, bootstrap_server: str, topic: str, group_id: str) -> None:
         self.bootstrap_server = bootstrap_server
         self.group_id = group_id
@@ -12,7 +12,17 @@ class kafka:
         self.producer = AIOKafkaProducer(bootstrap_servers=bootstrap_server)
 
     async def send_message(self, message):
-        pass
+        await self.producer.start()
+        try:
+            await self.producer.send_and_wait(topic=self.topic, value=message)
+        finally:
+            await self.producer.stop()
 
     async def consume_message(self):
-        pass
+        await self.consumer.start()
+        message = None
+        try:
+            message = await self.consumer.getone()
+        finally:
+            await self.consumer.stop()
+        return message
