@@ -24,6 +24,8 @@ services:
       - 9000:9000
     networks:
       - botdetector-network
+    depends_on:
+      - kafka
 
 networks:
   botdetector-network:
