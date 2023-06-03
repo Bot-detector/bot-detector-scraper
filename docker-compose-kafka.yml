@@ -7,8 +7,9 @@ services:
       - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
       - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
-    volumes:
-      - ./kafka:/bitnami/kafka:rw
+      # - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+    # volumes:
+    #   - ./kafka:/bitnami/kafka:rw
     ports:
       - 9094:9094
     networks:
@@ -22,6 +23,7 @@ services:
       - SERVER_SERVLET_CONTEXTPATH=/
     ports:
       - 9000:9000
+    restart: on-failure
     networks:
       - botdetector-network
     depends_on:

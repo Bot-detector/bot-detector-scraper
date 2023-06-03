@@ -92,7 +92,7 @@ def main():
     consumer.poll(timeout_ms=100)
 
     existing_topics = admin_client.list_topics()
-    desired_topics = [topic]
+    desired_topics = ["scraper","player"]
     missing_topics = [t for t in desired_topics if t not in existing_topics]
     print(f"{existing_topics=}, {desired_topics=}")
     if missing_topics:

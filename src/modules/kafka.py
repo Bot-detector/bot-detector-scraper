@@ -1,28 +1,22 @@
-from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
+from aiokafka import AIOKafkaProducer
+import json
 
-
-class Kafka:
-    def __init__(self, bootstrap_server: str, topic: str, group_id: str) -> None:
-        self.bootstrap_server = bootstrap_server
-        self.group_id = group_id
+class KafkaProducer:
+    def __init__(self, topic: str, bootstrap_servers:str):
         self.topic = topic
-        self.consumer = AIOKafkaConsumer(
-            topic, bootstrap_server=bootstrap_server, group_id=group_id
+        self.bootstrap_servers = bootstrap_servers
+        self.producer = None
+
+    async def initialize(self):
+        self.producer = AIOKafkaProducer(
+            bootstrap_servers=self.bootstrap_servers,  # Kafka broker address
+            value_serializer=lambda x: json.dumps(x).encode(),
         )
-        self.producer = AIOKafkaProducer(bootstrap_servers=bootstrap_server)
+        await self.producer.start()
 
     async def send_message(self, message):
-        await self.producer.start()
-        try:
-            await self.producer.send_and_wait(topic=self.topic, value=message)
-        finally:
-            await self.producer.stop()
+        await self.producer.send(topic=self.topic, value=message)
 
-    async def consume_message(self):
-        await self.consumer.start()
-        message = None
-        try:
-            message = await self.consumer.getone()
-        finally:
-            await self.consumer.stop()
-        return message
+    async def stop(self):
+        await self.producer.stop()
+

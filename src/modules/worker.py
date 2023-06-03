@@ -1,18 +1,17 @@
-import asyncio
+import json
 import logging
 import time
 import uuid
 from typing import TYPE_CHECKING
-
+import asyncio
 import aiohttp
 from aiohttp import ClientSession
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, TopicPartition
 
 import config.config as config
-from config.config import app_config
-from modules.bot_detector_api import botDetectorApi
 from modules.scraper import Scraper
 from modules.validation.player import Player
-from modules.kafka import Kafka
+
 
 logger = logging.getLogger(__name__)
 
@@ -20,33 +19,65 @@ if TYPE_CHECKING:
     from modules.manager import Manager
 
 
-class NewWorker:
-    def __init__(self, proxy, manager) -> None:
-        self.scraper: Scraper = Scraper(proxy)
+class Worker:
+    def __init__(self, proxy, manager):
+        self.name = str(uuid.uuid4())
+        self.consumer = None
+        self.producer = None
+        self.scraper = None
+        self.proxy: str = proxy
+
         self.manager: Manager = manager
-        self.name: str = str(uuid.uuid4())
-        self.api: botDetectorApi = botDetectorApi(
-            app_config.ENDPOINT,
-            app_config.QUERY_SIZE,
-            app_config.TOKEN,
-            app_config.MAX_BYTES,
+
+    async def initialize(self):
+        self.consumer = AIOKafkaConsumer(
+            "player",  # Topic to consume from
+            bootstrap_servers="localhost:9094",  # Kafka broker address
+            # group_id=f"scraper-group-{self.name}",  # Consumer group ID
+            client_id=self.name,
         )
-        self.active: bool = True
-        self.kafka = Kafka("localhost:9094", "scraper")
+        self.producer = AIOKafkaProducer(
+            bootstrap_servers="localhost:9094",  # Kafka broker address
+            value_serializer=lambda x: json.dumps(x).encode(),
+        )
+
+        # Wait for the consumer and producer to connect
+        await self.consumer.start()
+        await self.producer.start()
+
+        self.scraper = Scraper(self.proxy)
 
     async def run(self, timeout: int):
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            while self.active:
-                player = await self.kafka.consume_message()
-                await self._scrape_data(session, Player(**player))
-                await asyncio.sleep(1)
+        # Call initialize method before running
+        await self.initialize()
 
-    async def _scrape_data(self, session: ClientSession, player: Player):
+        assert isinstance(
+            self.consumer, AIOKafkaConsumer
+        ), f"consumer myst be of type AIOKafkaConsumer, received: {type(self.consumer)}.s"
+
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            try:
+                async for msg in self.consumer:
+                    # Commit the consumed message to mark it as processed
+                    tp = TopicPartition(msg.topic, msg.partition)
+                    await self.consumer.commit({tp: msg.offset + 1})
+
+                    # Extract the player from the message
+                    player = msg.value.decode()
+                    player = json.loads(player)
+
+                    # Scrape the player and produce the result
+                    await self.scrape_data(session, Player(**player))
+            finally:
+                await self.consumer.stop()
+                await self.producer.stop()
+
+    async def scrape_data(self, session: ClientSession, player: Player):
         hiscore = await self.scraper.lookup_hiscores(player, session)
 
         if hiscore == "ClientHttpProxyError":
             logger.warning(f"ClientHttpProxyError killing worker name={self.name}")
-            self.active = False
+            self.manager.remove_worker(self)
             return
 
         if hiscore is None:
@@ -55,7 +86,6 @@ class NewWorker:
 
         if "error" in hiscore:
             player.possible_ban = 1
-            player.confirmed_ban = 0
             player.confirmed_player = 0
             player = await self.scraper.lookup_runemetrics(player, session)
         else:
@@ -70,28 +100,12 @@ class NewWorker:
 
         if player == "ClientHttpProxyError":
             logger.warning(f"ClientHttpProxyError killing worker name={self.name}")
-            self.active = False
+            self.manager.remove_worker(self)
             return
-        
+
         output = {
             "player": player.dict(),
             "hiscores": None if "error" in hiscore else hiscore,
         }
-        await self.manager.add_highscores(output)
+        await self.producer.send(topic="scraper", value=output)
 
-    async def _post_data(self, data):
-        try:
-            logger.info(f"worker={self.name} post scraped players")
-            await self.api.post_scraped_players(data)
-        except Exception as e:
-            logger.error(str(e))
-            await asyncio.sleep(60)
-
-    async def _get_data(self):
-        try:
-            logger.info(f"worker={self.name} get players to scrape")
-            players = await self.api.get_players_to_scrape()
-            await self.manager.add_players(players)
-        except Exception as e:
-            logger.error(str(e))
-            await asyncio.sleep(60)
