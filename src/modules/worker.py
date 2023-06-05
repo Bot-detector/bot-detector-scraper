@@ -1,17 +1,18 @@
+import asyncio
 import json
 import logging
 import time
 import uuid
 from typing import TYPE_CHECKING
-import asyncio
+
 import aiohttp
 from aiohttp import ClientSession
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, TopicPartition
 
 import config.config as config
+from config.config import app_config
 from modules.scraper import Scraper
 from modules.validation.player import Player
-
 
 logger = logging.getLogger(__name__)
 
@@ -26,24 +27,20 @@ class Worker:
         self.producer = None
         self.scraper = None
         self.proxy: str = proxy
+        self._retry_backoff_time = 1
 
         self.manager: Manager = manager
 
     async def initialize(self):
         self.consumer = AIOKafkaConsumer(
-            "player",  # Topic to consume from
-            bootstrap_servers="localhost:9094",  # Kafka broker address
-            # group_id=f"scraper-group-{self.name}",  # Consumer group ID
+            bootstrap_servers=app_config.KAFKA_HOST,  # Kafka broker address
             client_id=self.name,
+            group_id="scraper",
         )
         self.producer = AIOKafkaProducer(
-            bootstrap_servers="localhost:9094",  # Kafka broker address
+            bootstrap_servers=app_config.KAFKA_HOST,  # Kafka broker address
             value_serializer=lambda x: json.dumps(x).encode(),
         )
-
-        # Wait for the consumer and producer to connect
-        await self.consumer.start()
-        await self.producer.start()
 
         self.scraper = Scraper(self.proxy)
 
@@ -51,26 +48,33 @@ class Worker:
         # Call initialize method before running
         await self.initialize()
 
-        assert isinstance(
-            self.consumer, AIOKafkaConsumer
-        ), f"consumer myst be of type AIOKafkaConsumer, received: {type(self.consumer)}.s"
+        error = f"consumer must be of type AIOKafkaConsumer, received: {type(self.consumer)}."
+        assert isinstance(self.consumer, AIOKafkaConsumer), error
 
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            try:
-                async for msg in self.consumer:
-                    # Commit the consumed message to mark it as processed
-                    tp = TopicPartition(msg.topic, msg.partition)
-                    await self.consumer.commit({tp: msg.offset + 1})
+            while True:
+                try:
+                    self.consumer.subscribe(["player"])
+                    # Wait for the consumer and producer to connect
+                    await self.consumer.start()
+                    await self.producer.start()
+                    async for msg in self.consumer:
+                        # Commit the consumed message to mark it as processed
+                        tp = TopicPartition(msg.topic, msg.partition)
+                        await self.consumer.commit({tp: msg.offset + 1})
 
-                    # Extract the player from the message
-                    player = msg.value.decode()
-                    player = json.loads(player)
+                        # Extract the player from the message
+                        player = msg.value.decode()
+                        player = json.loads(player)
 
-                    # Scrape the player and produce the result
-                    await self.scrape_data(session, Player(**player))
-            finally:
-                await self.consumer.stop()
-                await self.producer.stop()
+                        # Scrape the player and produce the result
+                        await self.scrape_data(session, Player(**player))
+                finally:
+                    await self.consumer.stop()
+                    await self.producer.stop()
+                    # Exponential backoff
+                    await asyncio.sleep(2**self._retry_backoff_time)
+                    self._retry_backoff_time = self._retry_backoff_time**2
 
     async def scrape_data(self, session: ClientSession, player: Player):
         hiscore = await self.scraper.lookup_hiscores(player, session)
@@ -108,4 +112,3 @@ class Worker:
             "hiscores": None if "error" in hiscore else hiscore,
         }
         await self.producer.send(topic="scraper", value=output)
-

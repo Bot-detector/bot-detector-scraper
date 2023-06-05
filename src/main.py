@@ -14,7 +14,7 @@ async def main():
     This function is the main function of the program.
     It creates a list of proxies and then creates a worker for each proxy.
     """
-    logger.info(f"inserting in batches of {app_config.POST_INTERVAL}")
+    logger.info(f"posting every {app_config.POST_INTERVAL} seconds.")
     logger.info(f"{app_config.ENDPOINT=}")
 
     proxy_manager = ProxyManager(app_config.PROXY_DOWNLOAD_URL)

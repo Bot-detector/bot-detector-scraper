@@ -1,60 +1,45 @@
 version: '3'
 services:
-  mysql:
-    build:
-      context: ../bot-detector-mysql
-      dockerfile: Dockerfile
-    image: bot-detector/bd-mysql:latest
+  kafka:
+    image: bitnami/kafka:latest
     environment:
-      - MYSQL_ROOT_PASSWORD=root_bot_buster
-      - MYSQL_USER=botssuck
-      - MYSQL_PASSWORD=botdetector
-    volumes:
-      - ../bot-detector-mysql/mount:/var/lib/mysql
-      - '../bot-detector-mysql/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d'
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      # - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      # volumes:
+      #   - ./kafka:/bitnami/kafka:rw
     ports:
-      - "3306:3306"
+      - 9094:9094
     networks:
       - botdetector-network
-  api:
-    build:
-      context: ../Bot-Detector-Core-Files
-      dockerfile: Dockerfile
-      args:
-        root_path: /
-        api_port: 5000
-    image: bot-detector/bd-api:latest
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop:latest
     environment:
-      - sql_uri=mysql+asyncmy://root:root_bot_buster@mysql:3306/playerdata
-      - discord_sql_uri=mysql+asyncmy://root:root_bot_buster@mysql:3306/discord
-      - token=verify_ban
-    volumes:
-      - '../Bot-Detector-Core-Files/api:/code/api'
+      - KAFKA_BROKERCONNECT=kafka:9092
+      - JVM_OPTS=-Xms32M -Xmx64M
+      - SERVER_SERVLET_CONTEXTPATH=/
     ports:
-      - "5000:5000"
+      - 9000:9000
+    restart: on-failure
     networks:
       - botdetector-network
     depends_on:
-      - mysql
-      
+      - kafka
+
   scraper:
     build:
-      context: ../bot-detector-scraper
+      context: .
       dockerfile: Dockerfile
-    image: bot-detector/bd-scraper:latest
-    environment:
-    # free 10 proxies from https://www.webshare.io/?referral_code=6c2ftu5hdkxp
-    # you can find the proxy url at Proxy > List > Export https://proxy.webshare.io/proxy/list?
-      - PROXY_DOWNLOAD_URL=<YourProxyList>
-      - TOKEN=verify_ban
-      - QUERY_SIZE=100
-      - endpoint=http://api:5000
-    # env_file:
-    #   - .env
+      target: base
+    container_name: bd-scraper
+    command: python src/main.py
     networks:
       - botdetector-network
-    depends_on:
-      - api
+    env_file:
+      - .env
 
 networks:
   botdetector-network:

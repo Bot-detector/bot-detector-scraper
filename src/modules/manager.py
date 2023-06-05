@@ -48,7 +48,7 @@ class Manager:
 
     async def fetch_players(self):
         producer = AIOKafkaProducer(
-            bootstrap_servers="localhost:9094",  # Kafka broker address
+            bootstrap_servers=app_config.KAFKA_HOST,  # Kafka broker address
             value_serializer=lambda x: json.dumps(x).encode(),
         )
 
@@ -68,20 +68,38 @@ class Manager:
 
     async def post_scraped_players(self):
         consumer = AIOKafkaConsumer(
-            "player",  # Topic to consume from
-            bootstrap_servers="localhost:9094",  # Kafka broker address
+            bootstrap_servers=app_config.KAFKA_HOST,  # Kafka broker address
+            group_id="scraper"
         )
-        
-        data = []
-        
-        await consumer.start()
-        # Consume players from the "scraper" topic
-        async for msg in consumer:
-            msg = msg.value.decode()
-            data.append(json.loads(msg))
-        await consumer.stop()
 
-        await self.api.post_scraped_players(data)
+        consumer.subscribe(["scraper"])
+        await consumer.start()
+
+        try:
+            while True:
+                batch = []
+                async for msg in consumer:
+                    msg = msg.value.decode()
+                    batch.append(json.loads(msg))
+                    
+                    if len(batch) == 1000:
+                        await self.api.post_scraped_players(batch)
+                        batch = []  # Reset batch after processing
+
+                    if not consumer.assignment():
+                        logger.debug("break")
+                        break  # No more messages in the topic
+
+                if batch:
+                    await self.api.post_scraped_players(batch)  # Process remaining players in the last batch
+                    batch = []  # Reset batch after processing
+
+                if not consumer.assignment():
+                    logger.debug("break")
+                    break  # No more messages in the topic
+
+        finally:
+            await consumer.stop()
 
     async def post_scraped_players_periodically(self):
         while True:
