@@ -12,10 +12,9 @@ app_config = AppConfig(
     QUERY_SIZE=int(os.getenv("QUERY_SIZE")),
     TOKEN=os.getenv("TOKEN"),
     MAX_BYTES=int(os.getenv("MAX_BYTES", 1_000_000)),
-    POST_INTERVAL=round(int(os.getenv("QUERY_SIZE")) * 0.1)
-        if int(os.getenv("QUERY_SIZE")) > 100
-        else int(os.getenv("QUERY_SIZE")),
+    POST_INTERVAL=os.getenv("POST_INTERVAL", 60),
     TIMEOUT_SECONDS=10,
     SESSION_TIMEOUT=ClientTimeout(total=None, sock_connect=10, sock_read=10),
+    KAFKA_HOST=os.getenv("KAFKA_HOST")
 )
 

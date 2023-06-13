@@ -1,101 +1,108 @@
 import asyncio
 import logging
-import time
-from collections import deque
 
 import config.config as config
 from config.config import app_config
-from modules.worker import NewWorker
-from modules.validation.player import Player
+from modules.bot_detector_api import botDetectorApi
+from modules.worker import Worker
+from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
+import json
 
 logger = logging.getLogger(__name__)
 
 
 class Manager:
-    def __init__(self, proxies: list[str]) -> None:
+    def __init__(self, proxies):
         self.proxies = proxies
-        self.queue_players = deque([])
-        self.queue_players_highscores = deque([])
-        self.last_player_request = 0
-        self.last_post_request = 0
-        self.get_lock = False
-        self.post_lock = False
+        self.workers = []
+        self.api: botDetectorApi = botDetectorApi(
+            app_config.ENDPOINT,
+            app_config.QUERY_SIZE,
+            app_config.TOKEN,
+            app_config.MAX_BYTES,
 
-    async def run(self, post_interval: int):
+        )
+        self.player_fetch_interval = 180
+
+    async def run(self, post_interval):
         logger.info("Running manager")
         self.post_interval = post_interval
-        # start workers for each proxy
-        tasks = list()
+
+        # Start workers for each proxy
+        tasks = []
         for proxy in self.proxies:
-            worker = NewWorker(proxy, self)
-            tasks.append(
-                asyncio.create_task(worker.run(timeout=app_config.SESSION_TIMEOUT))
-            )
+            worker = Worker(proxy, self)
+            self.workers.append(worker)
+            tasks.append(asyncio.create_task(worker.run(timeout=app_config.SESSION_TIMEOUT)))
+        
+        # Start the task to fetch players periodically
+        tasks.append(asyncio.create_task(self.fetch_players_periodically()))
+        
+        # Start the task to post scraped players via API periodically
+        tasks.append(asyncio.create_task(self.post_scraped_players_periodically()))
+
         await asyncio.gather(*tasks)
 
-    async def get_players_task(self) -> bool:
-        if not len(self.queue_players) < app_config.QUERY_SIZE:
-            return False
+    def remove_worker(self, worker):
+        self.workers.remove(worker)
 
-        if self.get_lock:
-            return False
+    async def fetch_players(self):
+        producer = AIOKafkaProducer(
+            bootstrap_servers=app_config.KAFKA_HOST,  # Kafka broker address
+            value_serializer=lambda x: json.dumps(x).encode(),
+        )
 
-        now = int(time.time())
-        # check if it is time to make another request
-        if self.last_player_request + 60 > now:
-            return False
+        players = await self.api.get_players_to_scrape()
 
-        self.last_player_request = now
-        self.get_lock = True
-        return True
 
-    async def get_post_task(self) -> bool:
-        delay = 10
-        if not len(self.queue_players_highscores) > self.post_interval:
-            return False
+        await producer.start()
+        # Produce the fetched players to the "player" topic
+        for player in players:
+            await producer.send(topic="player", value=player.dict())
+        await producer.stop()
+    
+    async def fetch_players_periodically(self):
+        while True:
+            await self.fetch_players()
+            await asyncio.sleep(self.player_fetch_interval)
 
-        if self.post_lock:
-            return False
+    async def post_scraped_players(self):
+        consumer = AIOKafkaConsumer(
+            bootstrap_servers=app_config.KAFKA_HOST,  # Kafka broker address
+            group_id="scraper"
+        )
 
-        now = int(time.time())
-        # check if it is time to make another request
-        if self.last_post_request + delay > now:
-            return False
+        consumer.subscribe(["scraper"])
+        await consumer.start()
 
-        self.last_post_request = now
-        self.post_lock = True
-        return True
+        try:
+            while True:
+                batch = []
+                async for msg in consumer:
+                    msg = msg.value.decode()
+                    batch.append(json.loads(msg))
+                    
+                    if len(batch) == 1000:
+                        await self.api.post_scraped_players(batch)
+                        batch = []  # Reset batch after processing
 
-    async def add_players(self, players: list[Player]):
-        # add players to queue_players if not already in it
-        count = 0
-        queue = asyncio.Queue()
-        # this did not like to be a pydantic class
-        _ = [await queue.put(p.dict()) for p in players]
+                    if not consumer.assignment():
+                        logger.debug("break")
+                        break  # No more messages in the topic
 
-        while not queue.empty():
-            _player = await queue.get()
-            if _player in self.queue_players:
-                continue
-            self.queue_players.append(_player)
-            count += 1
+                if batch:
+                    await self.api.post_scraped_players(batch)  # Process remaining players in the last batch
+                    batch = []  # Reset batch after processing
 
-        logger.info(f"added {count}, total size: {len(self.queue_players)}")
-        self.get_lock = False
-        return
+                if not consumer.assignment():
+                    logger.debug("break")
+                    break  # No more messages in the topic
+        except:
+            await consumer.stop()
+        finally:
+            await consumer.stop()
 
-    async def add_highscores(self, highscore_data: dict):
-        self.queue_players_highscores.append(highscore_data)
-        if len(self.queue_players_highscores) % 100 == 0:
-            logger.info(f"# scraped highscores: {len(self.queue_players_highscores)}")
-        return
-
-    async def get_player(self) -> Player:
-        if len(self.queue_players) == 0:
-            return None
-        return self.queue_players.popleft()
-
-    async def get_post_data(self) -> list[dict]:
-        data = list(self.queue_players_highscores)
-        self.queue_players_highscores = deque([])
-        return data
+    async def post_scraped_players_periodically(self):
+        while True:
+            await self.post_scraped_players()
+            await asyncio.sleep(self.post_interval)

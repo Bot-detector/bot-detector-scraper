@@ -29,17 +29,5 @@ services:
     depends_on:
       - kafka
 
-  scraper:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: base
-    container_name: bd-scraper
-    command: python src/main.py
-    networks:
-      - botdetector-network
-    env_file:
-      - .env
-
 networks:
   botdetector-network:

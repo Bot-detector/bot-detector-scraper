@@ -12,6 +12,8 @@ class AppConfig(BaseModel):
     POST_INTERVAL: int
     TIMEOUT_SECONDS: int
     SESSION_TIMEOUT: Any
+
+    KAFKA_HOST: str
     
     class Config:
         env_prefix = ""
