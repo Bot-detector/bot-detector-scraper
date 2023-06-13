@@ -22,7 +22,7 @@ class Manager:
             app_config.MAX_BYTES,
 
         )
-        self.player_fetch_interval = 60
+        self.player_fetch_interval = 180
 
     async def run(self, post_interval):
         logger.info("Running manager")
@@ -97,7 +97,8 @@ class Manager:
                 if not consumer.assignment():
                     logger.debug("break")
                     break  # No more messages in the topic
-
+        except:
+            await consumer.stop()
         finally:
             await consumer.stop()
 

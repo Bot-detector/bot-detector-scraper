@@ -37,6 +37,7 @@ class Worker:
             bootstrap_servers=app_config.KAFKA_HOST,  # Kafka broker address
             client_id=self.name,
             group_id="scraper",
+            auto_offset_reset='earliest',
             # max_poll_records=1,
             # max_poll_interval_ms=1000
         )
@@ -72,6 +73,8 @@ class Worker:
 
                         # Scrape the player and produce the result
                         await self.scrape_data(session, Player(**player))
+                except Exception as e:
+                    logger.warning(f"{str(e)}")
                 finally:
                     await self.consumer.stop()
                     await self.producer.stop()
