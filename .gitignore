@@ -132,5 +132,5 @@ test.py
 docker-compose.yml
 docker-compose.yml
 
-kafka/
 src/test.py
+kafka/*
