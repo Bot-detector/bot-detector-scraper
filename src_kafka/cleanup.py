@@ -11,6 +11,7 @@ def main():
         NewTopic(name="player", num_partitions=250, replication_factor=1),
         NewTopic(name="scraper", num_partitions=1, replication_factor=1),
     ])
+
     print(res)
     topics = admin_client.list_topics()
     print(topics)

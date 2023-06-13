@@ -28,6 +28,7 @@ class Worker:
         self.scraper = None
         self.proxy: str = proxy
         self._retry_backoff_time = 1
+        self.is_active:bool = True
 
         self.manager: Manager = manager
 
@@ -36,6 +37,8 @@ class Worker:
             bootstrap_servers=app_config.KAFKA_HOST,  # Kafka broker address
             client_id=self.name,
             group_id="scraper",
+            # max_poll_records=1,
+            # max_poll_interval_ms=1000
         )
         self.producer = AIOKafkaProducer(
             bootstrap_servers=app_config.KAFKA_HOST,  # Kafka broker address
@@ -52,7 +55,7 @@ class Worker:
         assert isinstance(self.consumer, AIOKafkaConsumer), error
 
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            while True:
+            while self.is_active:
                 try:
                     self.consumer.subscribe(["player"])
                     # Wait for the consumer and producer to connect
@@ -61,7 +64,7 @@ class Worker:
                     async for msg in self.consumer:
                         # Commit the consumed message to mark it as processed
                         tp = TopicPartition(msg.topic, msg.partition)
-                        await self.consumer.commit({tp: msg.offset + 1})
+                        # await self.consumer.commit({tp: msg.offset + 1})
 
                         # Extract the player from the message
                         player = msg.value.decode()
@@ -82,6 +85,7 @@ class Worker:
         if hiscore == "ClientHttpProxyError":
             logger.warning(f"ClientHttpProxyError killing worker name={self.name}")
             self.manager.remove_worker(self)
+            self.is_active = False
             return
 
         if hiscore is None:
@@ -105,6 +109,7 @@ class Worker:
         if player == "ClientHttpProxyError":
             logger.warning(f"ClientHttpProxyError killing worker name={self.name}")
             self.manager.remove_worker(self)
+            self.is_active = False
             return
 
         output = {
