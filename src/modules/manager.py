@@ -4,17 +4,16 @@ import logging
 import config.config as config
 from config.config import app_config
 from modules.bot_detector_api import botDetectorApi
-from modules.worker import Worker
+from modules.worker import Worker, WorkerState
+from modules.validation.player import Player
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
 import json
 
 logger = logging.getLogger(__name__)
 
-
 class Manager:
     def __init__(self, proxies):
         self.proxies = proxies
-        self.workers = []
         self.api: botDetectorApi = botDetectorApi(
             app_config.ENDPOINT,
             app_config.QUERY_SIZE,
@@ -28,23 +27,50 @@ class Manager:
         logger.info("Running manager")
         self.post_interval = post_interval
 
-        # Start workers for each proxy
-        tasks = []
-        for proxy in self.proxies:
-            worker = Worker(proxy, self)
-            self.workers.append(worker)
-            tasks.append(asyncio.create_task(worker.run(timeout=app_config.SESSION_TIMEOUT)))
-        
-        # Start the task to fetch players periodically
-        tasks.append(asyncio.create_task(self.fetch_players_periodically()))
-        
-        # Start the task to post scraped players via API periodically
-        tasks.append(asyncio.create_task(self.post_scraped_players_periodically()))
+        logger.info("initiating workers")
+        workers = [await Worker(proxy).initialize() for proxy in self.proxies]
 
-        await asyncio.gather(*tasks)
+        logger.info("initiating consumer")
+        consumer = AIOKafkaConsumer(
+            bootstrap_servers=app_config.KAFKA_HOST,
+            group_id="scraper",
+            auto_offset_reset='earliest',
+        )
+        consumer.subscribe(["player"])
 
-    def remove_worker(self, worker):
-        self.workers.remove(worker)
+        logger.info("initialize the periodic tasks")
+        asyncio.ensure_future(self.fetch_players_periodically())
+        asyncio.ensure_future(self.post_scraped_players_periodically())
+
+        logger.info("starting consumer")
+        await consumer.start()
+        try:
+            async for msg in consumer:
+                if not any(worker.state != WorkerState.BROKEN for worker in workers):
+                    raise Exception("Crashing the container")
+                    break
+
+                # Extract the player from the message
+                player = msg.value.decode()
+                player = json.loads(player)
+                player = Player(**player)
+
+                available_workers = [w for w in workers if w.state == WorkerState.FREE]
+
+                if not available_workers:
+                    logger.info("no available workers.")
+                    await asyncio.sleep(10)
+                    continue
+
+                worker = available_workers[0]
+                assert worker.state == WorkerState.FREE
+                asyncio.ensure_future(worker.scrape_player(player))
+                await asyncio.sleep(0.1)
+        finally:
+            await consumer.stop()
+            for worker in workers:
+                await worker.destroy()
+
 
     async def fetch_players(self):
         producer = AIOKafkaProducer(
@@ -97,8 +123,6 @@ class Manager:
                 if not consumer.assignment():
                     logger.debug("break")
                     break  # No more messages in the topic
-        except:
-            await consumer.stop()
         finally:
             await consumer.stop()
 

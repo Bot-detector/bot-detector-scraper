@@ -4,8 +4,8 @@ import time
 from collections import deque
 from http.client import responses
 from aiohttp import ClientSession, ClientResponse
-from utils.http_exception_handler import http_exception_handler
-from modules.validation.player import Player
+from utils.http_exception_handler import http_exception_handler, InvalidResponse
+from modules.validation.player import Player, PlayerDoesNotExistException
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ hiscore_mapper = {
     "theatre_of_blood_hard_mode": "theatre_of_blood_hard",
     "tombs_of_amascut_expert_mode": "tombs_of_amascut_expert",
 }
+
 
 
 class Scraper:
@@ -55,10 +56,8 @@ class Scraper:
                 return data
             case 404:
                 if source_function == "lookup_highscores":
-                    logger.debug(
-                        f"{player.name} does not exist on hiscores. trying runemetrics"
-                    )
-                    return {"error": player}
+                    logger.debug(f"{player.name} does not exist on hiscores.")
+                    raise PlayerDoesNotExistException(f"Player {player} does not exist")
                 logger.warning(f"{source_function} returned {status}-{status_code}")
             case 403, 502, 500, 504, 520, 524:
                 logger.warning(f"{source_function} returned {status}-{status_code}")
@@ -68,7 +67,7 @@ class Scraper:
                     f"Unhandled status code {status} from hiscore_oldschool. Header: {response.headers} Body: {body}"
                 )
         await asyncio.sleep(1)
-        return None
+        raise InvalidResponse()
 
     def _parse_hiscore_name(self, name: str) -> str:
         name = name.lower()
@@ -121,13 +120,8 @@ class Scraper:
 
         async with session.get(url, proxy=self.proxy) as response:
             data = await self._handle_response_status(response, player, "lookup_highscores")
-
             if data is None:
-                return None
-
-            if "error" in data:
                 return data
-
             hiscore = await self._parse_hiscores(data)
             hiscore["Player_id"] = player.id
             return hiscore
