@@ -6,10 +6,13 @@ from aiohttp.client_exceptions import (
     ClientConnectorError,
     ContentTypeError,
     ClientOSError,
-    ClientHttpProxyError,
 )
 import asyncio
 import logging
+from modules.validation.player import PlayerDoesNotExistException
+
+class InvalidResponse(Exception):
+    pass
 
 def http_exception_handler(func):
     async def wrapper(*args, **kwargs):
@@ -17,8 +20,6 @@ def http_exception_handler(func):
         try:
             result = await func(*args, **kwargs)
             return result
-        except ClientHttpProxyError:
-            return "ClientHttpProxyError"
         except (
             ServerTimeoutError,
             ServerDisconnectedError,
@@ -27,6 +28,9 @@ def http_exception_handler(func):
             ClientOSError,
         ) as e:
             logger.error(f"{e}")
+            raise InvalidResponse(f"{e}")
+        except PlayerDoesNotExistException:
+            raise PlayerDoesNotExistException()
         except Exception as e:
             # get the stack trace as a string
             tb_str = traceback.format_exc()  

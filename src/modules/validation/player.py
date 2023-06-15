@@ -1,5 +1,8 @@
 from pydantic import BaseModel
 
+class PlayerDoesNotExistException(Exception):
+    pass
+
 class Player(BaseModel):
     id: int
     name: str
