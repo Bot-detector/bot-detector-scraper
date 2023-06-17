@@ -17,7 +17,7 @@ from enum import Enum
 from utils.http_exception_handler import InvalidResponse
 
 logger = logging.getLogger(__name__)
-
+logger.info(f"kafka_host={app_config.KAFKA_HOST}")
 
 class WorkerState(Enum):
     FREE = "free"
