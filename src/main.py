@@ -16,6 +16,7 @@ async def main():
     """
     logger.info(f"posting every {app_config.POST_INTERVAL} seconds.")
     logger.info(f"{app_config.ENDPOINT=}")
+    logger.info(f"{app_config.KAFKA_HOST=}")
 
     proxy_manager = ProxyManager(app_config.PROXY_DOWNLOAD_URL)
     proxies = await proxy_manager.get_proxy_list()

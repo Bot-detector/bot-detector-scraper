@@ -17,7 +17,6 @@ from enum import Enum
 from utils.http_exception_handler import InvalidResponse
 
 logger = logging.getLogger(__name__)
-logger.info(f"kafka_host={app_config.KAFKA_HOST}")
 
 class WorkerState(Enum):
     FREE = "free"
@@ -63,7 +62,7 @@ class Worker:
             self.state = WorkerState.BROKEN
             return
         except PlayerDoesNotExistException:
-            logger.warning(f"Hiscore is empty for {player.name}")
+            # logger.info(f"Hiscore is empty for {player.name}")
             player.possible_ban = 1
             player.confirmed_player = 0
 

@@ -48,14 +48,17 @@ class Manager:
             async for msg in consumer:
                 if not any(worker.state != WorkerState.BROKEN for worker in workers):
                     raise Exception("Crashing the container")
-                    break
 
                 # Extract the player from the message
                 player = msg.value.decode()
                 player = json.loads(player)
                 player = Player(**player)
 
+                count_broken = len([w for w in workers if w.state == WorkerState.BROKEN])
                 available_workers = [w for w in workers if w.state == WorkerState.FREE]
+
+                if count_broken > 0:
+                    logger.warning(f"Broken workers: {count_broken}")
 
                 if not available_workers:
                     logger.info("no available workers.")
@@ -84,7 +87,7 @@ class Manager:
         await producer.start()
         # Produce the fetched players to the "player" topic
         for player in players:
-            await producer.send(topic="player", value=player.dict())
+            await producer.send(topic="player", key=player.id ,value=player.dict())
         await producer.stop()
     
     async def fetch_players_periodically(self):

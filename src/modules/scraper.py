@@ -41,7 +41,7 @@ class Scraper:
             span = tail - head
             if span < 60:
                 sleep = 60 - span
-                logger.debug(f"Rate limit reached, sleeping {sleep} seconds")
+                logger.warning(f"Rate limit reached, sleeping {sleep} seconds")
                 await asyncio.sleep(sleep)
         return
 

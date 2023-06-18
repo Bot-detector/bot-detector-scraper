@@ -1,6 +1,7 @@
 version: '3'
 services:
   kafka:
+    container_name: kafka
     image: bitnami/kafka:latest
     environment:
       - ALLOW_PLAINTEXT_LISTENER=yes
@@ -16,6 +17,7 @@ services:
       - botdetector-network
 
   kafdrop:
+    container_name: kafdrop
     image: obsidiandynamics/kafdrop:latest
     environment:
       - KAFKA_BROKERCONNECT=kafka:9092
@@ -30,11 +32,11 @@ services:
       - kafka
 
   scraper:
+    container_name: scraper
     build:
       context: .
       dockerfile: Dockerfile
       target: base
-    container_name: bd-scraper
     command: python src/main.py
     networks:
       - botdetector-network
