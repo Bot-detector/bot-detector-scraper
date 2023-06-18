@@ -8,6 +8,7 @@ from modules.worker import Worker, WorkerState
 from modules.validation.player import Player
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
 import json
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ class Manager:
                     await asyncio.sleep(10)
                     continue
 
-                worker = available_workers[0]
+                worker = random.choice(available_workers)
                 assert worker.state == WorkerState.FREE
                 asyncio.ensure_future(worker.scrape_player(player))
                 await asyncio.sleep(0.1)
@@ -83,11 +84,10 @@ class Manager:
 
         players = await self.api.get_players_to_scrape()
 
-
         await producer.start()
         # Produce the fetched players to the "player" topic
         for player in players:
-            await producer.send(topic="player", key=player.id ,value=player.dict())
+            await producer.send(topic="player", key=player.name.encode(), value=player.dict())
         await producer.stop()
     
     async def fetch_players_periodically(self):
