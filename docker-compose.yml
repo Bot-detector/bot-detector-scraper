@@ -38,6 +38,7 @@ services:
       dockerfile: Dockerfile
       target: base
     command: python src/main.py
+    restart: on-failure
     networks:
       - botdetector-network
     env_file:
