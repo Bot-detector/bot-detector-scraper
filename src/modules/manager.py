@@ -132,7 +132,6 @@ class Manager:
         consumer.subscribe(["scraper"])
         await consumer.start()
 
-        start_time = time.time()
         sleep = 1
 
         try:
