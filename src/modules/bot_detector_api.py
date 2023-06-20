@@ -26,6 +26,7 @@ class botDetectorApi:
 
     @timer
     async def _split_data(self, data: list[dict]) -> list[list[dict]]:
+        logger.info(f"splitting data: {len(data)=}")
         # initialize the list of chunks to return
         chunks = []
         # initialize the current chunk being processed

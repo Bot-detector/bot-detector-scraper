@@ -133,13 +133,15 @@ class Manager:
         await consumer.start()
         try:
             while True:
-                msgs = await consumer.getmany(max_records=1000)
+                msgs = await consumer.getmany(timeout_ms=5_000)
+
+                if msgs == {}:
+                    await asyncio.sleep(1)
+                    continue
+
                 for topic, messages in msgs.items():
-                    batch = []
-                    for msg in messages:
-                        msg = msg.value.decode()
-                        batch.append(json.loads(msg))
-                        logger.info(len(batch))
+                    batch = [json.loads(msg.value.decode()) for msg in messages]
+                    logger.info(len(batch))
                     await self.api.post_scraped_players(batch)
                 break
         finally:
