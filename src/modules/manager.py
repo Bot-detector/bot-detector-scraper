@@ -82,7 +82,7 @@ class Manager:
 
         logger.info("initialize the periodic tasks")
         asyncio.ensure_future(self.fetch_players_periodically())
-        asyncio.ensure_future(self.post_scraped_players_periodically())
+        asyncio.ensure_future(self.post_scraped_players())
 
         logger.info("starting consumer")
         await consumer.start()
@@ -131,23 +131,25 @@ class Manager:
 
         consumer.subscribe(["scraper"])
         await consumer.start()
+
+        start_time = time.time()
+        sleep = 1
+
         try:
             while True:
-                msgs = await consumer.getmany(timeout_ms=5_000)
+                msgs = await consumer.getmany(timeout_ms=1_000)
 
                 if msgs == {}:
-                    await asyncio.sleep(1)
+                    _sleep = sleep + random.randint(0,5)
+                    await asyncio.sleep(_sleep)
+                    sleep = sleep*2 if sleep*2 < 60 else 60
                     continue
+                
+                sleep = 1
 
                 for topic, messages in msgs.items():
                     batch = [json.loads(msg.value.decode()) for msg in messages]
                     logger.info(len(batch))
                     await self.api.post_scraped_players(batch)
-                break
         finally:
             await consumer.stop()
-
-    async def post_scraped_players_periodically(self):
-        while True:
-            await self.post_scraped_players()
-            await asyncio.sleep(self.post_interval)
