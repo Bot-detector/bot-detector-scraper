@@ -8,8 +8,8 @@ def main():
     if not topics == []:
         admin_client.delete_topics(topics)
     res = admin_client.create_topics([
-        NewTopic(name="player", num_partitions=250, replication_factor=1),
-        NewTopic(name="scraper", num_partitions=1, replication_factor=1),
+        NewTopic(name="player", num_partitions=12, replication_factor=1),
+        NewTopic(name="scraper", num_partitions=2, replication_factor=1),
     ])
 
     print(res)

@@ -41,7 +41,7 @@ class Worker:
         return self
     
     async def destroy(self):
-        self.session.close()
+        await self.session.close()
         await self.producer.stop()
 
     async def scrape_player(self, player: Player):
