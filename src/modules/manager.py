@@ -111,7 +111,8 @@ class Manager:
         await consumer.start()
 
         sleep = 1
-
+        _batch = []
+        send_time = time.time()
         try:
             while True:
                 msgs = await consumer.getmany(max_records=10_000, timeout_ms=1000)
@@ -127,9 +128,14 @@ class Manager:
                 for topic, messages in msgs.items():
                     batch = [json.loads(msg.value.decode()) for msg in messages]
                     logger.info(f"{len(batch)=}")
+                    _batch.extend(batch)
 
-                    asyncio.ensure_future(self.api.post_scraped_players(batch))
+                    if len(_batch) > 1000 or send_time + 60 < time.time():
+                        asyncio.ensure_future(self.api.post_scraped_players(_batch))
+                        _batch = []
+                        send_time = time.time()
                     
+                    # commit the latest seen message
                     msg = messages[-1]
                     tp = TopicPartition(msg.topic, msg.partition)
                     await consumer.commit({tp: msg.offset + 1})
