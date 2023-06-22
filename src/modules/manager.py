@@ -6,7 +6,7 @@ from config.config import app_config
 from modules.bot_detector_api import botDetectorApi
 from modules.worker import Worker, WorkerState
 from modules.validation.player import Player
-from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
+from aiokafka import AIOKafkaProducer, AIOKafkaConsumer, TopicPartition
 import json
 import random
 import time
@@ -70,7 +70,7 @@ class Manager:
         self.post_interval = post_interval
 
         logger.info("initiating workers")
-        self.workers = [await Worker(proxy).initialize() for proxy in self.proxies]
+        self.workers = await asyncio.gather(*[Worker(proxy).initialize() for proxy in self.proxies])
 
         logger.info("initiating consumer")
         consumer = AIOKafkaConsumer(
@@ -81,7 +81,6 @@ class Manager:
         consumer.subscribe(["player"])
 
         logger.info("initialize the periodic tasks")
-        # asyncio.ensure_future(self.fetch_players_periodically())
         asyncio.ensure_future(self.post_scraped_players())
 
         logger.info("starting consumer")
@@ -103,27 +102,6 @@ class Manager:
         finally:
             await self.destroy()
 
-    async def fetch_players(self):
-        producer = AIOKafkaProducer(
-            bootstrap_servers=app_config.KAFKA_HOST,  # Kafka broker address
-            value_serializer=lambda x: json.dumps(x).encode(),
-        )
-
-        players = await self.api.get_players_to_scrape()
-
-        await producer.start()
-        # Produce the fetched players to the "player" topic
-        for player in players:
-            await producer.send(
-                topic="player", key=player.name.encode(), value=player.dict()
-            )
-        await producer.stop()
-
-    async def fetch_players_periodically(self):
-        while True:
-            await self.fetch_players()
-            await asyncio.sleep(self.player_fetch_interval)
-
     async def post_scraped_players(self):
         consumer = AIOKafkaConsumer(
             bootstrap_servers=app_config.KAFKA_HOST, group_id="scraper"
@@ -136,7 +114,7 @@ class Manager:
 
         try:
             while True:
-                msgs = await consumer.getmany(timeout_ms=1_000)
+                msgs = await consumer.getmany(max_records=10_000, timeout_ms=1000)
 
                 if msgs == {}:
                     _sleep = sleep + random.randint(0,5)
@@ -148,7 +126,12 @@ class Manager:
 
                 for topic, messages in msgs.items():
                     batch = [json.loads(msg.value.decode()) for msg in messages]
-                    logger.info(len(batch))
-                    await self.api.post_scraped_players(batch)
+                    logger.info(f"{len(batch)=}")
+
+                    asyncio.ensure_future(self.api.post_scraped_players(batch))
+                    
+                    msg = messages[-1]
+                    tp = TopicPartition(msg.topic, msg.partition)
+                    await consumer.commit({tp: msg.offset + 1})
         finally:
             await consumer.stop()
