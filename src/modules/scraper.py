@@ -66,7 +66,7 @@ class Scraper:
                 logger.error(
                     f"Unhandled status code {status} from hiscore_oldschool. Header: {response.headers} Body: {body}"
                 )
-        await asyncio.sleep(1)
+        await asyncio.sleep(60)
         raise InvalidResponse()
 
     def _parse_hiscore_name(self, name: str) -> str:
