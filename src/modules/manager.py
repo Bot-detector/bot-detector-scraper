@@ -139,5 +139,8 @@ class Manager:
                     msg = messages[-1]
                     tp = TopicPartition(msg.topic, msg.partition)
                     await consumer.commit({tp: msg.offset + 1})
+                
+                if len(_batch) < 100:
+                    await asyncio.sleep(60)
         finally:
             await consumer.stop()
