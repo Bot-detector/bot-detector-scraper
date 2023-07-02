@@ -5,21 +5,33 @@ def main():
     admin_client = KafkaAdminClient(bootstrap_servers="localhost:9094")
     topics = admin_client.list_topics()
     print(topics)
+
     if not topics == []:
         admin_client.delete_topics(topics)
+        # admin_client.delete_topics(['scraper'])
+        # admin_client.delete_topics(["player"])
+        
     res = admin_client.create_topics(
         [
             NewTopic(
                 name="player",
-                num_partitions=12,
+                num_partitions=3,
                 replication_factor=1,
-                topic_configs={"retention.ms": 86_400_000, "cleanup.policy": "delete"},
+                topic_configs={
+                    "retention.ms": 3_600_000, # one hour
+                    "retention.bytes": 50_000_000 , # 50MB
+                    "cleanup.policy": "delete",   
+                },
             ),
             NewTopic(
                 name="scraper",
                 num_partitions=2,
                 replication_factor=1,
-                topic_configs={"retention.ms": 86_400_000, "cleanup.policy": "delete"},
+                topic_configs={
+                    "retention.ms": 3_600_000, # one hour
+                    "retention.bytes": 524_288_000, # 500MB
+                    "cleanup.policy": "delete"   
+                },
             ),
         ]
     )
