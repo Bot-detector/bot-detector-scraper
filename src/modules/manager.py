@@ -59,7 +59,7 @@ class Manager:
                 if (idx % 100 == 0) or (len(available_workers) % 50 == 0):
                     working_workers = [w for w in self.workers if w.state != WorkerState.BROKEN]
                     logger.info(
-                        f" available: {len(available_workers)} / total: {len(working_workers)}"
+                        f"available: {len(available_workers)} / total: {len(working_workers)}"
                     )
 
                 _worker = random.choice(available_workers)
