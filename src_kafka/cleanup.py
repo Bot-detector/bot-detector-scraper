@@ -19,7 +19,7 @@ def main():
                 replication_factor=1,
                 topic_configs={
                     "retention.ms": 3_600_000, # one hour
-                    "retention.bytes": 50_000_000 , # 50MB
+                    "retention.bytes": 18_000_000, # 18MB
                     "cleanup.policy": "delete",   
                 },
             ),
