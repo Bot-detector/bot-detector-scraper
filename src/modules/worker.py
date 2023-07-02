@@ -3,20 +3,20 @@ import json
 import logging
 import time
 import uuid
-from typing import TYPE_CHECKING
+from enum import Enum
 
 import aiohttp
-from aiohttp import ClientSession
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, TopicPartition
 from aiohttp.client_exceptions import ClientHttpProxyError
+from aiokafka import AIOKafkaProducer
+
 import config.config as config
 from config.config import app_config
 from modules.scraper import Scraper
 from modules.validation.player import Player, PlayerDoesNotExistException
-from enum import Enum
 from utils.http_exception_handler import InvalidResponse
 
 logger = logging.getLogger(__name__)
+
 
 class WorkerState(Enum):
     FREE = "free"
@@ -39,7 +39,7 @@ class Worker:
         self.scraper = Scraper(self.proxy)
         self.session = aiohttp.ClientSession(timeout=app_config.SESSION_TIMEOUT)
         return self
-    
+
     async def destroy(self):
         await self.session.close()
         await self.producer.stop()
@@ -54,7 +54,8 @@ class Worker:
             player.label_jagex = 0
             player.updated_at = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         except InvalidResponse:
-            logger.warning(f"invalid response")
+            logger.warning(f"invalid response, from lookup_hiscores\n\t{player.dict()}")
+            await asyncio.sleep(10)
             self.state = WorkerState.FREE
             return
         except ClientHttpProxyError:
@@ -70,7 +71,7 @@ class Worker:
             try:
                 player = await self.scraper.lookup_runemetrics(player, self.session)
             except InvalidResponse:
-                logger.warning(f"Invalid response")
+                logger.warning(f"Invalid response, from rune_metrics\n\t{player.dict()}")
                 self.state = WorkerState.FREE
                 return
             except ClientHttpProxyError:

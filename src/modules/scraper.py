@@ -57,7 +57,7 @@ class Scraper:
             case 404:
                 if source_function == "lookup_highscores":
                     logger.debug(f"{player.name} does not exist on hiscores.")
-                    raise PlayerDoesNotExistException(f"Player {player} does not exist")
+                    raise PlayerDoesNotExistException(f"Player {player.dict()} does not exist")
                 logger.warning(f"{source_function} returned {status}-{status_code}")
             case 403, 502, 500, 504, 520, 524:
                 logger.warning(f"{source_function} returned {status}-{status_code}")

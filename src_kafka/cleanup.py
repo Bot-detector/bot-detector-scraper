@@ -18,9 +18,10 @@ def main():
                 num_partitions=3,
                 replication_factor=1,
                 topic_configs={
-                    "retention.ms": 3_600_000, # one hour
-                    "retention.bytes": 18_000_000, # 18MB
-                    "cleanup.policy": "delete",   
+                    "retention.ms": 3_600_000, # 1 hour
+                    "segment.ms": 900_000, # 15 minutes
+                    # "segment.bytes": 10_000_000, # 10 mb
+                    "cleanup.policy": "delete" ,   
                 },
             ),
             NewTopic(
@@ -28,9 +29,10 @@ def main():
                 num_partitions=2,
                 replication_factor=1,
                 topic_configs={
-                    "retention.ms": 3_600_000, # one hour
-                    "retention.bytes": 524_288_000, # 500MB
-                    "cleanup.policy": "delete"   
+                    "retention.ms": 3_600_000, # 1 hour
+                    "segment.ms": 900_000, # 15 minutes
+                    # "segment.bytes": 10_000_000, # 10 mb
+                    "cleanup.policy": "delete",
                 },
             ),
         ]

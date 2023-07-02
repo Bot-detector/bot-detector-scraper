@@ -6,7 +6,7 @@ from config.config import app_config
 from modules.bot_detector_api import botDetectorApi
 from modules.worker import Worker, WorkerState
 from modules.validation.player import Player
-from aiokafka import AIOKafkaProducer, AIOKafkaConsumer, TopicPartition
+from aiokafka import AIOKafkaConsumer, TopicPartition
 import json
 import random
 import time
@@ -57,7 +57,10 @@ class Manager:
                     continue
                 
                 if (idx % 100 == 0) or (len(available_workers) % 50 == 0):
-                    logger.info(f"{len(available_workers)=}")
+                    working_workers = [w for w in self.workers if w.state != WorkerState.BROKEN]
+                    logger.info(
+                        f" available: {len(available_workers)} / total: {len(working_workers)}"
+                    )
 
                 _worker = random.choice(available_workers)
                 asyncio.ensure_future(_worker.scrape_player(player))
@@ -99,6 +102,8 @@ class Manager:
         await self.initialize(post_interval)
         try:
             await self._process()
+        except Exception as e:
+            logger.error(str(e))
         finally:
             await self.destroy()
 
@@ -142,5 +147,7 @@ class Manager:
                 
                 if len(_batch) < 100 and _batch:
                     await asyncio.sleep(60)
+        except Exception as e:
+            logger.error(str(e))
         finally:
             await consumer.stop()
