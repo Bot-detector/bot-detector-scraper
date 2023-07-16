@@ -12,9 +12,14 @@ from aiokafka import AIOKafkaProducer
 import config.config as config
 from config.config import app_config
 from modules.scraper import Scraper
-from modules.validation.player import Player, PlayerDoesNotExistException
-from utils.http_exception_handler import InvalidResponse
-
+from modules.validation.player import Player
+from aiohttp.client_exceptions import (
+    ServerTimeoutError,
+    ServerDisconnectedError,
+    ClientConnectorError,
+    ContentTypeError,
+    ClientOSError,
+)
 logger = logging.getLogger(__name__)
 
 
@@ -48,12 +53,19 @@ class Worker:
         self.state = WorkerState.WORKING
         hiscore = None
         try:
-            hiscore = await self.scraper.lookup_hiscores(player, self.session)
+            player, hiscore = await self.scraper.lookup_hiscores(player, self.session)
             player.possible_ban = 0
             player.confirmed_ban = 0
             player.label_jagex = 0
             player.updated_at = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-        except InvalidResponse:
+        except (
+            ServerTimeoutError,
+            ServerDisconnectedError,
+            ClientConnectorError,
+            ContentTypeError,
+            ClientOSError,
+        ) as e:
+            logger.error(f"{e}")
             logger.warning(f"invalid response, from lookup_hiscores\n\t{player.dict()}")
             await asyncio.sleep(10)
             self.state = WorkerState.FREE
@@ -62,22 +74,6 @@ class Worker:
             logger.warning(f"ClientHttpProxyError killing worker name={self.name}")
             self.state = WorkerState.BROKEN
             return
-        except PlayerDoesNotExistException:
-            # logger.info(f"Hiscore is empty for {player.name}")
-            player.possible_ban = 1
-            player.confirmed_player = 0
-
-            # this is a bit much indenting
-            try:
-                player = await self.scraper.lookup_runemetrics(player, self.session)
-            except InvalidResponse:
-                logger.warning(f"Invalid response, from rune_metrics\n\t{player.dict()}")
-                self.state = WorkerState.FREE
-                return
-            except ClientHttpProxyError:
-                logger.warning(f"ClientHttpProxyError killing worker name={self.name}")
-                self.state = WorkerState.BROKEN
-                return
 
         assert isinstance(
             player, Player

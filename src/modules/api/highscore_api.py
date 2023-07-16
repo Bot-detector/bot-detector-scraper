@@ -2,8 +2,7 @@ from modules.validation.player import Player, PlayerDoesNotExistException
 from aiohttp import ClientSession, ClientResponse
 import logging
 import asyncio
-from utils.http_exception_handler import http_exception_handler, InvalidResponse
-from http.client import responses
+from utils.http_exception_handler import InvalidResponse
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +40,6 @@ class HighscoreApi:
         self, response: ClientResponse, player: Player
     ) -> dict:
         status = response.status
-        status_code = responses.get(status)
         match status:
             # OK
             case 200:
