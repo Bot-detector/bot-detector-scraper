@@ -54,10 +54,6 @@ class Worker:
         hiscore = None
         try:
             player, hiscore = await self.scraper.lookup_hiscores(player, self.session)
-            player.possible_ban = 0
-            player.confirmed_ban = 0
-            player.label_jagex = 0
-            player.updated_at = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         except (
             ServerTimeoutError,
             ServerDisconnectedError,
