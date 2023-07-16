@@ -67,11 +67,13 @@ class Worker:
         ) as e:
             logger.error(f"{e}")
             logger.warning(f"invalid response, from lookup_hiscores\n\t{player.dict()}")
+            await self.producer.send(topic="player", value=player.dict())
             await asyncio.sleep(10)
             self.state = WorkerState.FREE
             return
         except ClientHttpProxyError:
             logger.warning(f"ClientHttpProxyError killing worker name={self.name}")
+            await self.producer.send(topic="player", value=player.dict())
             self.state = WorkerState.BROKEN
             return
 
