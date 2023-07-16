@@ -41,12 +41,12 @@ class Scraper:
             player.possible_ban = 0
             player.confirmed_ban = 0
             player.label_jagex = 0
-            player.updated_at = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         except PlayerDoesNotExistException:
             player.possible_ban = 1
             player.confirmed_player = 0
-
             player = await self.runemetrics_api.lookup_runemetrics(player=player, session=session)
+
+        player.updated_at = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         return player, highscore
 
     async def lookup_runemetrics(self, player: Player, session: ClientSession) -> dict:
