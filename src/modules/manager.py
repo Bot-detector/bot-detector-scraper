@@ -3,7 +3,7 @@ import logging
 
 import config.config as config
 from config.config import app_config
-from modules.bot_detector_api import botDetectorApi
+from modules.api.bot_detector_api import botDetectorApi
 from modules.worker import Worker, WorkerState
 from modules.validation.player import Player
 from aiokafka import AIOKafkaConsumer, TopicPartition
