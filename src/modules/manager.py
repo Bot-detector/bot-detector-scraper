@@ -83,8 +83,8 @@ class Manager:
         )
         consumer.subscribe(["player"])
 
-        logger.info("initialize the periodic tasks")
-        asyncio.ensure_future(self.post_scraped_players())
+        # logger.info("initialize the periodic tasks")
+        # asyncio.ensure_future(self.post_scraped_players())
 
         logger.info("starting consumer")
         await consumer.start()
