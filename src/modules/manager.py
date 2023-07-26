@@ -26,9 +26,32 @@ class Manager:
         self.player_fetch_interval: int = 180
         self.workers: list[Worker]
 
-    
+    async def _process_batch(self, batch:list[Player]):
+        for idx, player in enumerate(batch):
+            available_workers = [
+                w for w in self.workers if w.state == WorkerState.FREE
+            ]
+
+            # breakout if no available workers
+            if not available_workers:
+                logger.info("no available workers.")
+                await asyncio.sleep(1)
+                continue
+            
+            if (idx % 100 == 0) or (len(available_workers) % 50 == 0):
+                working_workers = [w for w in self.workers if w.state != WorkerState.BROKEN]
+                logger.info(
+                    f"available: {len(available_workers)} / total: {len(working_workers)}"
+                )
+
+            _worker = random.choice(available_workers)
+            asyncio.ensure_future(_worker.scrape_player(player))
+            await asyncio.sleep(0.01)
+
     async def _process(self):
         sleep = 1
+        batch = []
+        send_time = time.time()
         while any(worker.state != WorkerState.BROKEN for worker in self.workers):
             msgs = await self.consumer.getmany(max_records=500)
             
@@ -36,35 +59,27 @@ class Manager:
             if msgs == {}:
                 logger.info("no messages, sleeping")
                 await asyncio.sleep(sleep)
-                sleep = sleep *2 if sleep*2 < 60 else 60
+                sleep = sleep * 2 if sleep * 2 < 60 else 60
                 continue
-            sleep = 1
-            
+
             # parsing all messages
             for topic, messages in msgs.items():
-                logger.info(f"{topic=}")
-                players = [Player(**json.loads(msg.value.decode())) for msg in messages]
+                logger.info(f"{topic=}, {len(messages)=}, {len(batch)=}")
+                data: list[Player] = [Player(**json.loads(msg.value.decode())) for msg in messages]
+                batch.extend(data)
+
+                if len(batch) > len(self.workers) or send_time + 60 < time.time():
+                    await self._process_batch(batch)
+                    send_time = time.time()
+                    batch = []
+
+                # commit the latest seen message
+                msg = messages[-1]
+                tp = TopicPartition(msg.topic, msg.partition)
+                await self.consumer.commit({tp: msg.offset + 1})
             
-            for idx, player in enumerate(players):
-                available_workers = [
-                    w for w in self.workers if w.state == WorkerState.FREE
-                ]
-
-                # breakout if no available workers
-                if not available_workers:
-                    logger.info("no available workers.")
-                    await asyncio.sleep(1)
-                    continue
-                
-                if (idx % 100 == 0) or (len(available_workers) % 50 == 0):
-                    working_workers = [w for w in self.workers if w.state != WorkerState.BROKEN]
-                    logger.info(
-                        f"available: {len(available_workers)} / total: {len(working_workers)}"
-                    )
-
-                _worker = random.choice(available_workers)
-                asyncio.ensure_future(_worker.scrape_player(player))
-                await asyncio.sleep(0.01)
+            # reset sleep
+            sleep = 1
         else:
             raise Exception("Crashing the container")
 
@@ -82,9 +97,6 @@ class Manager:
             auto_offset_reset="earliest",
         )
         consumer.subscribe(["player"])
-
-        # logger.info("initialize the periodic tasks")
-        # asyncio.ensure_future(self.post_scraped_players())
 
         logger.info("starting consumer")
         await consumer.start()
@@ -107,47 +119,3 @@ class Manager:
         finally:
             await self.destroy()
 
-    async def post_scraped_players(self):
-        consumer = AIOKafkaConsumer(
-            bootstrap_servers=app_config.KAFKA_HOST, group_id="scraper"
-        )
-
-        consumer.subscribe(["scraper"])
-        await consumer.start()
-
-        sleep = 1
-        _batch = []
-        send_time = time.time()
-        try:
-            while True:
-                msgs = await consumer.getmany(max_records=10_000, timeout_ms=1000)
-
-                if msgs == {}:
-                    _sleep = sleep + random.randint(0,5)
-                    await asyncio.sleep(_sleep)
-                    sleep = sleep*2 if sleep*2 < 60 else 60
-                    continue
-                
-                sleep = 1
-
-                for topic, messages in msgs.items():
-                    batch = [json.loads(msg.value.decode()) for msg in messages]
-                    logger.info(f"{len(batch)=}")
-                    _batch.extend(batch)
-
-                    if len(_batch) > 1000 or send_time + 60 < time.time():
-                        asyncio.ensure_future(self.api.post_scraped_players(_batch))
-                        _batch = []
-                        send_time = time.time()
-                    
-                    # commit the latest seen message
-                    msg = messages[-1]
-                    tp = TopicPartition(msg.topic, msg.partition)
-                    await consumer.commit({tp: msg.offset + 1})
-                
-                if len(_batch) < 100 and _batch:
-                    await asyncio.sleep(60)
-        except Exception as e:
-            logger.error(str(e))
-        finally:
-            await consumer.stop()

@@ -18,21 +18,23 @@ def main():
                 num_partitions=3,
                 replication_factor=1,
                 topic_configs={
-                    "retention.ms": 3_600_000, # 1 hour
-                    "segment.ms": 900_000, # 15 minutes
-                    # "segment.bytes": 10_000_000, # 10 mb
-                    "cleanup.policy": "delete" ,   
+                    # "session.timeout.ms":60000
+                    # "retention.ms": 3_600_000, # 1 hour
+                    # "segment.ms": 900_000, # 15 minutes
+                    # # "segment.bytes": 10_000_000, # 10 mb
+                    # "cleanup.policy": "delete" ,   
                 },
             ),
             NewTopic(
                 name="scraper",
-                num_partitions=2,
+                num_partitions=4,
                 replication_factor=1,
                 topic_configs={
-                    "retention.ms": 3_600_000, # 1 hour
-                    "segment.ms": 900_000, # 15 minutes
-                    # "segment.bytes": 10_000_000, # 10 mb
-                    "cleanup.policy": "delete",
+                    # "session.timeout.ms": 60000
+                    # "retention.ms": 3_600_000, # 1 hour
+                    # "segment.ms": 900_000, # 15 minutes
+                    # # "segment.bytes": 10_000_000, # 10 mb
+                    # "cleanup.policy": "delete",
                 },
             ),
         ]
