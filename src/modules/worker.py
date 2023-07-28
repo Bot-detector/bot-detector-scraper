@@ -49,6 +49,16 @@ class Worker:
         await self.session.close()
         await self.producer.stop()
 
+    async def send_player(self, player: Player):
+        producer = AIOKafkaProducer(
+            bootstrap_servers=app_config.KAFKA_HOST,  # Kafka broker address
+            value_serializer=lambda x: json.dumps(x).encode(),
+        )
+        await producer.start()
+        await producer.send(topic="player", value=player.dict())
+        await producer.stop()
+        return
+    
     async def scrape_player(self, player: Player):
         self.state = WorkerState.WORKING
         hiscore = None
@@ -63,13 +73,13 @@ class Worker:
         ) as e:
             logger.error(f"{e}")
             logger.warning(f"invalid response, from lookup_hiscores\n\t{player.dict()}")
-            await self.producer.send(topic="player", value=player.dict())
+            await self.send_player(player)
             await asyncio.sleep(10)
             self.state = WorkerState.FREE
             return
         except ClientHttpProxyError:
             logger.warning(f"ClientHttpProxyError killing worker name={self.name}")
-            await self.producer.send(topic="player", value=player.dict())
+            await self.send_player(player)
             self.state = WorkerState.BROKEN
             return
 
