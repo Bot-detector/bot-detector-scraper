@@ -34,8 +34,8 @@ class Manager:
 
             # breakout if no available workers
             if not available_workers:
-                logger.info("no available workers.")
-                await asyncio.sleep(1)
+                # logger.info("no available workers.")
+                await asyncio.sleep(0.1)
                 continue
             
             if (idx % 100 == 0) or (len(available_workers) % 50 == 0):
@@ -83,9 +83,8 @@ class Manager:
         else:
             raise Exception("Crashing the container")
 
-    async def initialize(self, post_interval):
+    async def initialize(self):
         logger.info("Running manager")
-        self.post_interval = post_interval
 
         logger.info("initiating workers")
         self.workers = await asyncio.gather(*[Worker(proxy).initialize() for proxy in self.proxies])
@@ -110,8 +109,8 @@ class Manager:
         for worker in self.workers:
             await worker.destroy()
 
-    async def run(self, post_interval):
-        await self.initialize(post_interval)
+    async def run(self):
+        await self.initialize()
         try:
             await self._process()
         except Exception as e:
