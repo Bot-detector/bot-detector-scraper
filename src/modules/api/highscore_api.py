@@ -61,7 +61,6 @@ class HighscoreApi:
                     f"Header: {response.headers}\n"
                     f"Body: {body}"
                 )
-        await asyncio.sleep(60)
         raise InvalidResponse()
 
     def _parse_hiscore_name(self, name: str) -> str:

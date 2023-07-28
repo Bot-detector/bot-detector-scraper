@@ -31,7 +31,7 @@ class WorkerState(Enum):
 
 class Worker:
     def __init__(self, proxy: str):
-        self.name = str(uuid.uuid4())
+        self.name = str(uuid.uuid4())[-8:]
         self.state: WorkerState = WorkerState.FREE
         self.proxy: str = proxy
 
@@ -72,22 +72,22 @@ class Worker:
             ClientOSError,
         ) as e:
             logger.error(f"{e}")
-            logger.warning(f"invalid response, from lookup_hiscores\n\t{player.dict()}")
+            logger.warning(f"{self.name} - invalid response, from lookup_hiscores\n\t{player.dict()}")
             await self.send_player(player)
             await asyncio.sleep(10)
             self.state = WorkerState.FREE
             return
         except ClientHttpProxyError:
-            logger.warning(f"ClientHttpProxyError killing worker name={self.name}")
+            logger.warning(f"{self.name} - ClientHttpProxyError killing worker")
             await self.send_player(player)
             self.state = WorkerState.BROKEN
             return
 
         assert isinstance(
             player, Player
-        ), f"expected the variable player to be of class Player, but got {player}"
+        ), f"{self.name} - expected the variable player to be of class Player,\n\t{player=}"
 
         output = {"player": player.dict(), "hiscores": hiscore}
-        await self.producer.send(topic="scraper", value=output)
+        asyncio.ensure_future(self.producer.send(topic="scraper", value=output))
         self.state = WorkerState.FREE
         return

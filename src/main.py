@@ -39,7 +39,7 @@ async def main():
     logger.info(f"{app_config.ENDPOINT=}")
     logger.info(f"{app_config.KAFKA_HOST=}")
 
-    BATCH_SIZE = 10
+    BATCH_SIZE = 50
 
     proxies = await get_proxies()
     proxy_batches = batchify_list(proxies, BATCH_SIZE)
