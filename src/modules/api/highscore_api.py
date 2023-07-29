@@ -1,7 +1,10 @@
-from modules.validation.player import Player, PlayerDoesNotExistException
-from aiohttp import ClientSession, ClientResponse
-import logging
 import asyncio
+import logging
+import time
+
+from aiohttp import ClientResponse, ClientSession
+
+from modules.validation.player import Player, PlayerDoesNotExistException
 from utils.http_exception_handler import InvalidResponse
 
 logger = logging.getLogger(__name__)
@@ -23,7 +26,9 @@ hiscore_mapper = {
 class HighscoreApi:
     def __init__(self, proxy: str = None) -> None:
         self.proxy = proxy
-        self.base_url = "https://secure.runescape.com/m=hiscore_oldschool/index_lite.json"
+        self.base_url = (
+            "https://secure.runescape.com/m=hiscore_oldschool/index_lite.json"
+        )
 
     async def lookup_hiscores(self, player: Player, session: ClientSession) -> dict:
         logger.info(f"Performing hiscores lookup on {player.name}")
@@ -34,6 +39,7 @@ class HighscoreApi:
             assert data is not None, f"Data should not be None"
             hiscore = await self._parse_hiscores(data)
             hiscore["Player_id"] = player.id
+            hiscore["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
             return hiscore
 
     async def _handle_response_status(
