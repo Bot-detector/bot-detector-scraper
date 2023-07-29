@@ -34,6 +34,7 @@ class Worker:
         self.name = str(uuid.uuid4())[-8:]
         self.state: WorkerState = WorkerState.FREE
         self.proxy: str = proxy
+        self.errors = 0
 
     async def initialize(self):
         self.producer = AIOKafkaProducer(
@@ -62,6 +63,11 @@ class Worker:
     async def scrape_player(self, player: Player):
         self.state = WorkerState.WORKING
         hiscore = None
+
+        if self.errors > 5:
+            logger.error(f"{self.name} - to many errors, killing worker")
+            self.state = WorkerState.BROKEN
+
         try:
             player, hiscore = await self.scraper.lookup_hiscores(player, self.session)
         except (
@@ -76,11 +82,13 @@ class Worker:
             await self.send_player(player)
             await asyncio.sleep(10)
             self.state = WorkerState.FREE
+            self.errors += 1
             return
         except ClientHttpProxyError:
             logger.warning(f"{self.name} - ClientHttpProxyError killing worker")
             await self.send_player(player)
             self.state = WorkerState.BROKEN
+            self.errors += 1
             return
 
         assert isinstance(
@@ -90,4 +98,5 @@ class Worker:
         output = {"player": player.dict(), "hiscores": hiscore}
         asyncio.ensure_future(self.producer.send(topic="scraper", value=output))
         self.state = WorkerState.FREE
+        self.errors = 0
         return
