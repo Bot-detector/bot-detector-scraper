@@ -20,6 +20,7 @@ from aiohttp.client_exceptions import (
     ContentTypeError,
     ClientOSError,
 )
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,15 +52,10 @@ class Worker:
         await self.producer.stop()
 
     async def send_player(self, player: Player):
-        producer = AIOKafkaProducer(
-            bootstrap_servers=app_config.KAFKA_HOST,  # Kafka broker address
-            value_serializer=lambda x: json.dumps(x).encode(),
-        )
-        await producer.start()
-        await producer.send(topic="player", value=player.dict())
-        await producer.stop()
+        await self.producer.send(topic="player", value=player.dict())
+        await self.producer.flush()
         return
-    
+
     async def scrape_player(self, player: Player):
         self.state = WorkerState.WORKING
         hiscore = None
@@ -78,7 +74,9 @@ class Worker:
             ClientOSError,
         ) as e:
             logger.error(f"{e}")
-            logger.warning(f"{self.name} - invalid response, from lookup_hiscores\n\t{player.dict()}")
+            logger.warning(
+                f"{self.name} - invalid response, from lookup_hiscores\n\t{player.dict()}"
+            )
             await self.send_player(player)
             await asyncio.sleep(10)
             self.state = WorkerState.FREE
@@ -91,9 +89,8 @@ class Worker:
             self.errors += 1
             return
 
-        assert isinstance(
-            player, Player
-        ), f"{self.name} - expected the variable player to be of class Player,\n\t{player=}"
+        err = f"{self.name} - expected the variable player to be of class Player,\n\t{player=}"
+        assert isinstance(player, Player), err
 
         output = {"player": player.dict(), "hiscores": hiscore}
         asyncio.ensure_future(self.producer.send(topic="scraper", value=output))
