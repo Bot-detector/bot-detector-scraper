@@ -41,7 +41,7 @@ class Worker:
             value_serializer=lambda x: json.dumps(x).encode(),
         )
         await self.producer.start()
-        self.scraper = Scraper(self.proxy)
+        self.scraper = Scraper(proxy=self.proxy, worker_name=self.name)
         self.session = aiohttp.ClientSession(timeout=app_config.SESSION_TIMEOUT)
         return self
 
