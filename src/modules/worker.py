@@ -95,6 +95,7 @@ class Worker:
             player, Player
         ), f"{self.name} - expected the variable player to be of class Player,\n\t{player=}"
 
+        hiscore["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
         output = {"player": player.dict(), "hiscores": hiscore}
         asyncio.ensure_future(self.producer.send(topic="scraper", value=output))
         self.state = WorkerState.FREE

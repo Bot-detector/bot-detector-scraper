@@ -48,7 +48,7 @@ class Scraper:
             player.confirmed_player = 0
             player = await self.runemetrics_api.lookup_runemetrics(player=player, session=session)
 
-        player.updated_at = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+        player.updated_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
         return player, highscore
 
     async def lookup_runemetrics(self, player: Player, session: ClientSession) -> dict:
