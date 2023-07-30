@@ -28,6 +28,14 @@ services:
       - botdetector-network
     depends_on:
       - kafka
+      
+  kafka_setup:
+    build:
+      context: ./kafka_setup_container
+    depends_on:
+      - kafka
+    networks:
+      - botdetector-network
 
 networks:
   botdetector-network:

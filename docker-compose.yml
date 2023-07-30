@@ -31,6 +31,16 @@ services:
     depends_on:
       - kafka
 
+  kafka_setup:
+    build:
+      context: ./kafka_setup_container
+    environment:
+      - KAFKA_BROKER=kafka:9094
+    networks:
+      - botdetector-network
+    depends_on:
+      - kafka
+
   scraper:
     container_name: scraper
     build:
@@ -44,7 +54,7 @@ services:
     env_file:
       - .env
     depends_on:
-      - kafka
+      - kafka_setup
 
 networks:
   botdetector-network:
