@@ -38,6 +38,7 @@ class HighscoreApi:
             data = await self._handle_response_status(response, player)
             assert data is not None, f"Data should not be None"
             hiscore = await self._parse_hiscores(data)
+            assert hiscore is not None, f"hiscore should not be None"
             hiscore["Player_id"] = player.id
             hiscore["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
             return hiscore

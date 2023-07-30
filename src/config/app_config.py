@@ -1,8 +1,8 @@
 
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, BaseSettings
 from typing import Any
 
-class AppConfig(BaseModel):
+class AppConfig(BaseSettings):
     PROXY_DOWNLOAD_URL: HttpUrl
     ENDPOINT: str
     QUERY_SIZE: int

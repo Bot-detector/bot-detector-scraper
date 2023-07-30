@@ -92,6 +92,15 @@ class Worker:
         err = f"{self.name} - expected the variable player to be of class Player,\n\t{player=}"
         assert isinstance(player, Player), err
 
+        if hiscore is not None:
+            hiscore: dict
+            err = f"expected hiscore to be a dict, received: {hiscore=}"
+            assert isinstance(hiscore, dict), err
+            assert "timestamp" in hiscore.keys(), "missing timestamp in hiscore"
+        else:
+            err = f"expected player with no hiscore to be possible banned, {player=}"
+            assert player.possible_ban == 1, err
+            
         output = {"player": player.dict(), "hiscores": hiscore}
         asyncio.ensure_future(self.producer.send(topic="scraper", value=output))
         self.state = WorkerState.FREE
