@@ -2,3 +2,4 @@
 .vscode/
 __pycache__/
 venv/
+kafka_setup_container/kafka_data/*.json

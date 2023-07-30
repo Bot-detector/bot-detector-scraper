@@ -8,11 +8,16 @@ services:
       - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
       - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
-      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
       # volumes:
       #   - ./kafka:/bitnami/kafka:rw
     ports:
       - 9094:9094
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--list", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
     networks:
       - botdetector-network
 
@@ -29,17 +34,20 @@ services:
     networks:
       - botdetector-network
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
 
   kafka_setup:
+    container_name: kafka_setup
     build:
       context: ./kafka_setup_container
     environment:
-      - KAFKA_BROKER=kafka:9094
+      - KAFKA_BROKER=kafka:9092
     networks:
       - botdetector-network
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
 
   scraper:
     container_name: scraper

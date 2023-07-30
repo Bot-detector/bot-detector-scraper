@@ -133,4 +133,4 @@ docker-compose.yml
 docker-compose.yml
 
 src/test.py
-kafka/*
+kafka_setup_container/kafka_data/*.json
