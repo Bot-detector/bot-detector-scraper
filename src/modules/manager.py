@@ -101,10 +101,16 @@ class Manager:
 
     async def initialize(self):
         logger.info(f"{self.name} - initiating workers")
-        self.workers = await asyncio.gather(
-            *[Worker(proxy).initialize() for proxy in self.proxies]
-        )
-
+        # self.workers = await asyncio.gather(
+        #     *[Worker(proxy).initialize() for proxy in self.proxies]
+        # )
+        
+        self.workers = []
+        for proxy in self.proxies:
+            worker = Worker(proxy)
+            worker = await worker.initialize()
+            self.workers.append(worker)
+        
         logger.info(f"{self.name} - initiating consumer")
         consumer = AIOKafkaConsumer(
             bootstrap_servers=app_config.KAFKA_HOST,

@@ -44,7 +44,7 @@ class Worker:
         )
         await self.producer.start()
         self.scraper = Scraper(proxy=self.proxy, worker_name=self.name)
-        self.session = aiohttp.ClientSession(timeout=app_config.SESSION_TIMEOUT)
+        self.session = aiohttp.ClientSession(timeout=app_config.SESSION_TIMEOUT, trust_env=True)
         return self
 
     async def destroy(self):

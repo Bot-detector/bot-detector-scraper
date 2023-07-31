@@ -13,6 +13,7 @@ services:
       #   - ./kafka:/bitnami/kafka:rw
     ports:
       - 9094:9094
+      - 9092:9092
     healthcheck:
       test: ["CMD", "kafka-topics.sh", "--list", "--bootstrap-server", "localhost:9092"]
       interval: 30s
@@ -55,10 +56,13 @@ services:
       context: .
       dockerfile: Dockerfile
       target: base
-    command: python src/main.py
-    restart: on-failure
+    # command: python src/main.py
+    command: bash -c "apt update && apt install -y curl && sleep infinity"
     networks:
       - botdetector-network
+    # this overrides the env_file for the specific variable
+    environment:
+      - KAFKA_HOST=kafka:9092
     env_file:
       - .env
     depends_on:
