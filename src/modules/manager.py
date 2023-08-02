@@ -88,6 +88,11 @@ class Manager:
             available_workers = [
                 w for w in self.workers if w.state != WorkerState.BROKEN
             ]
+            
+            if not available_workers:
+                await asyncio.sleep(1)
+                continue
+
             worker = random.choice(available_workers)
             asyncio.ensure_future(worker.scrape_player(message))
             self.message_queue.task_done()
@@ -95,5 +100,5 @@ class Manager:
             if count % 100 == 0:
                 qsize = self.message_queue.qsize()
                 delta = int(time.time()) - start_time
-                logger.info(f"{self.name} - {qsize=} - {count/delta:.2f} it/s")
+                logger.info(f"{self.name} - {qsize=} - {count/delta:.2f} it/s - {len(available_workers)=}")
             count += 1

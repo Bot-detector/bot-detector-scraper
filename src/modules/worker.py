@@ -63,7 +63,10 @@ class Worker:
 
         if self.errors > 5:
             logger.error(f"{self.name} - to many errors, killing worker")
+            await self.send_player(player)
+            await asyncio.sleep(60)
             self.state = WorkerState.BROKEN
+            return
 
         try:
             player, hiscore = await self.scraper.lookup_hiscores(player, self.session)
@@ -84,9 +87,9 @@ class Worker:
             self.errors += 1
             return
         except ClientHttpProxyError:
-            logger.warning(f"{self.name} - ClientHttpProxyError killing worker")
+            logger.warning(f"{self.name} - ClientHttpProxyError")
             await self.send_player(player)
-            self.state = WorkerState.BROKEN
+            await asyncio.sleep(10)
             self.errors += 1
             return
 
