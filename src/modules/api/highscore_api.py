@@ -57,8 +57,12 @@ class HighscoreApi:
                     f"Player {player.dict()} does not exist"
                 )
             # NOK, but known
-            # case 403, 502, 500, 504, 520, 524:
-            #     pass
+            case 429:
+                logger.warning(status)
+                await asyncio.sleep(15)
+            case 403, 502, 500, 504, 520, 524:
+                logger.warning(status)
+                await asyncio.sleep(1)
             # NOK
             case _:
                 body = await response.text()

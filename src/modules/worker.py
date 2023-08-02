@@ -38,6 +38,7 @@ class Worker:
         self.errors = 0
 
     async def initialize(self):
+        logger.info(f"initializing worker: {self.name}")
         self.producer = AIOKafkaProducer(
             bootstrap_servers=app_config.KAFKA_HOST,  # Kafka broker address
             value_serializer=lambda x: json.dumps(x).encode(),
@@ -73,7 +74,7 @@ class Worker:
             ContentTypeError,
             ClientOSError,
         ) as e:
-            logger.error(f"{e}")
+            logger.error(f"{self.name} - {e}")
             logger.warning(
                 f"{self.name} - invalid response, from lookup_hiscores\n\t{player.dict()}"
             )

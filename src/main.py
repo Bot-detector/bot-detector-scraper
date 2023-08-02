@@ -65,10 +65,9 @@ async def main():
 
     proxies = await get_proxies()
     proxy_batches = batchify_list(proxies, BATCH_SIZE)
-
     # create_and_run_processes(proxy_batches)
     create_and_run_threads(proxy_batches)
-
+    # await Manager(proxies).run()
 
 if __name__ == "__main__":
     asyncio.run(main())
