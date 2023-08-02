@@ -23,7 +23,6 @@ class Manager:
         self.workers: list[Worker] = []
         self.message_queue = Queue(maxsize=len(proxies) * 4)
 
-
     async def destroy(self):
         await self.consumer.stop()
 
@@ -49,7 +48,7 @@ class Manager:
         await consumer.start()
 
         self.consumer = consumer
-    
+
     async def run(self):
         await self.initialize()
         try:
@@ -60,8 +59,7 @@ class Manager:
         except Exception as e:
             logger.error(e)
         finally:
-            await self.destroy()  
-
+            await self.destroy()
 
     async def get_rows_from_kafka(self):
         logger.info(f"{self.name} - start consuming rows from kafka")
@@ -85,10 +83,8 @@ class Manager:
 
         while True:
             message: Player = await self.message_queue.get()
-            available_workers = [
-                w for w in self.workers if w.state == WorkerState.FREE
-            ]
-            
+            available_workers = [w for w in self.workers if w.state == WorkerState.FREE]
+
             if not available_workers:
                 await asyncio.sleep(1)
                 continue
@@ -100,5 +96,11 @@ class Manager:
             if count % 100 == 0:
                 qsize = self.message_queue.qsize()
                 delta = int(time.time()) - start_time
-                logger.info(f"{self.name} - {qsize=} - {count/delta:.2f} it/s - {len(available_workers)=}")
+                broken_workers = [
+                    w for w in self.workers if w.state == WorkerState.BROKEN
+                ]
+                logger.info(
+                    f"{self.name} - {qsize=} - {count/delta:.2f} it/s - {len(available_workers)=} - {len(broken_workers)=}"
+                )
+            await asyncio.sleep(0.01)
             count += 1

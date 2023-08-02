@@ -13,6 +13,7 @@ import config.config as config
 from config.config import app_config
 from modules.scraper import Scraper
 from modules.validation.player import Player
+from utils.http_exception_handler import InvalidResponse
 from aiohttp.client_exceptions import (
     ServerTimeoutError,
     ServerDisconnectedError,
@@ -38,7 +39,7 @@ class Worker:
         self.errors = 0
 
     async def initialize(self):
-        logger.info(f"initializing worker: {self.name}")
+        logger.info(f"{self.name} - initializing worker")
         self.producer = AIOKafkaProducer(
             bootstrap_servers=app_config.KAFKA_HOST,  # Kafka broker address
             value_serializer=lambda x: json.dumps(x).encode(),
@@ -76,6 +77,7 @@ class Worker:
             ClientConnectorError,
             ContentTypeError,
             ClientOSError,
+            InvalidResponse
         ) as e:
             logger.error(f"{self.name} - {e}")
             logger.warning(
