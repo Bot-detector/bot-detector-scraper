@@ -86,7 +86,7 @@ class Manager:
         while True:
             message: Player = await self.message_queue.get()
             available_workers = [
-                w for w in self.workers if w.state != WorkerState.BROKEN
+                w for w in self.workers if w.state == WorkerState.FREE
             ]
             
             if not available_workers:
