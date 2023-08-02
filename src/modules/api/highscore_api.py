@@ -60,9 +60,12 @@ class HighscoreApi:
             case 429:
                 logger.warning(status)
                 await asyncio.sleep(15)
-            case 403, 502, 500, 504, 520, 524:
+            case s if 500 <= s < 600:
                 logger.warning(status)
-                await asyncio.sleep(1)
+                await asyncio.sleep(5)
+            case 403:
+                logger.warning(status)
+                await asyncio.sleep(5)
             # NOK
             case _:
                 body = await response.text()
