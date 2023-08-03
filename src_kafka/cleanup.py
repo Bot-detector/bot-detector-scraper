@@ -19,9 +19,10 @@ def main():
                 replication_factor=1,
                 topic_configs={
                     # "session.timeout.ms":60000
-                    # "retention.ms": 3_600_000, # 1 hour
-                    # "segment.ms": 900_000, # 15 minutes
-                    # # "segment.bytes": 10_000_000, # 10 mb
+                    "retention.bytes": 1_000_000_000, # 1GB
+                    "segment.bytes": 100_000_000, # 100 mb
+                    "retention.ms": 3_600_000 * 4, # 4 hours
+                    "segment.ms": 3_600_000 , # 1 hour minutes
                     # "cleanup.policy": "delete" ,   
                 },
             ),
@@ -31,9 +32,10 @@ def main():
                 replication_factor=1,
                 topic_configs={
                     # "session.timeout.ms": 60000
-                    # "retention.ms": 3_600_000, # 1 hour
-                    # "segment.ms": 900_000, # 15 minutes
-                    # # "segment.bytes": 10_000_000, # 10 mb
+                    "retention.bytes": 1_000_000_000, # 1GB
+                    "segment.bytes": 100_000_000, # 100 mb
+                    "retention.ms": 3_600_000 * 4, # 4 hours
+                    "segment.ms": 3_600_000 , # 1 hour minutes
                     # "cleanup.policy": "delete",
                 },
             ),
