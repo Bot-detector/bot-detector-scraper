@@ -99,10 +99,10 @@ class Manager:
 
             available_workers = [w for w in self.workers if w.state == WorkerState.FREE]
 
-            if not available_workers:
+            if not available_workers or not batch:
                 await asyncio.sleep(1)
                 continue
-
+            
             if len(batch) >= len(available_workers) or delta_send_time > 60:
                 num_tasks = min(len(available_workers), len(batch))
 
