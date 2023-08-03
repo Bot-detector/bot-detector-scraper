@@ -87,7 +87,7 @@ class Manager:
     async def process_rows(self):
         # Process rows from the message queue using available workers
         logger.info(f"{self.name} - start processing rows")
-        last_send_time = int(time.time())
+        last_send_time = int(time.time()) - 1
         batch = []
         total_rows = deque(maxlen=100)
         total_time = deque(maxlen=100)
@@ -102,7 +102,7 @@ class Manager:
             if not available_workers or not batch:
                 await asyncio.sleep(1)
                 continue
-            
+
             if len(batch) >= len(available_workers) or delta_send_time > 60:
                 num_tasks = min(len(available_workers), len(batch))
 
