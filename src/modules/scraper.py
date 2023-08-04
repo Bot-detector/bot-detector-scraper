@@ -11,7 +11,7 @@ from typing import Union
 logger = logging.getLogger(__name__)
 
 class Scraper:
-    def __init__(self, proxy: str, worker_name:str, calls_per_minute: int = 60) -> None:
+    def __init__(self, proxy: str, worker_name:str, calls_per_minute: int = 10_000) -> None:
         self.proxy = proxy
         self.worker_name = worker_name
         self.history = deque(maxlen=calls_per_minute)
@@ -37,7 +37,6 @@ class Scraper:
             sleep = 60 - span
             if sleep % 10 == 0:
                 logger.warning(f"{self.worker_name} - Rate limit reached, sleeping {sleep} seconds")
-            logger.warning(f"{self.worker_name} - Rate limit reached, sleeping {sleep} seconds")
             self.sleeping = True
             await asyncio.sleep(sleep)
             self.sleeping = False
