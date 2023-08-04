@@ -72,8 +72,12 @@ class Worker:
                 continue
 
             if self.state == WorkerState.BROKEN:
-                logger.error(f"{self.name} - breaking")        
+                logger.error(f"{self.name} - breaking")  
                 for task in self.tasks:
+                    if task.done():
+                        continue
+                    inputs = task.get_coro().cr_frame.f_locals['player']
+                    await self.message_queue.put(inputs)
                     task.cancel()
                 break
 
