@@ -98,7 +98,7 @@ class Worker:
         self.state = WorkerState.WORKING
 
         try:
-            raise ServerTimeoutError("THIS IS FOR TASTING ^.^")
+            # raise ServerTimeoutError("THIS IS FOR TASTING ^.^")
             player, hiscore = await self.scraper.lookup_hiscores(player, self.session)
         except (
             ServerTimeoutError,

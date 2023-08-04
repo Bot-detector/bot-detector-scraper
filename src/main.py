@@ -62,7 +62,7 @@ async def main():
     BATCH_SIZE = 50
 
     proxies = await get_proxies()
-    proxy_batches = batchify_list(proxies[:5], BATCH_SIZE)
+    proxy_batches = batchify_list(proxies, BATCH_SIZE)
     # create_and_run_processes(proxy_batches)
     create_and_run_threads(proxy_batches)
     # await Manager(proxies).run()
