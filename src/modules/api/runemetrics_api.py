@@ -30,7 +30,7 @@ class RuneMetricsApi:
             data: dict = await self._handle_response_status(response, player)
             
             if data is None:
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.1)
                 return await self.lookup_runemetrics(player, session)
 
             logger.info(f"found {player_name} on runemetrics")
