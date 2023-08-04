@@ -11,7 +11,7 @@ from typing import Union
 logger = logging.getLogger(__name__)
 
 class Scraper:
-    def __init__(self, proxy: str, worker_name:str, calls_per_minute: int = 10_000) -> None:
+    def __init__(self, proxy: str, worker_name:str, calls_per_minute: int = 60) -> None:
         self.proxy = proxy
         self.worker_name = worker_name
         self.history = deque(maxlen=calls_per_minute)
