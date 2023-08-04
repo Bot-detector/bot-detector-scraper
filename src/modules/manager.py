@@ -100,6 +100,9 @@ class Manager:
         for worker in self.workers:
             asyncio.ensure_future(worker.run())
 
+        # make sure everything is properly initialized
+        await asyncio.sleep(15)
+
         while True:
             qsize = self.message_queue.qsize()
             available_workers = [w for w in self.workers if w.state != WorkerState.FREE]
@@ -114,10 +117,9 @@ class Manager:
                 f"available_workers={len(available_workers)} - broken_workers={len(broken_workers)}"
             )
 
-            if GLOBAL_SPEED.maxlen != COUNT_MANAGER * 4:
-                GLOBAL_SPEED = deque(maxlen=COUNT_MANAGER * 4)
-            
             if not init:
+                if GLOBAL_SPEED.maxlen != COUNT_MANAGER * 4:
+                    GLOBAL_SPEED = deque(maxlen=COUNT_MANAGER * 4)
                 init = True
                 await asyncio.sleep(10)
                 continue

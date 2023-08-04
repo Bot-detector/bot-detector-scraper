@@ -1,12 +1,20 @@
 import asyncio
 import json
 import logging
-import time
+import random
 import uuid
+from asyncio import Queue
 from enum import Enum
 
 import aiohttp
-from aiohttp.client_exceptions import ClientHttpProxyError
+from aiohttp.client_exceptions import (
+    ClientConnectorError,
+    ClientHttpProxyError,
+    ClientOSError,
+    ContentTypeError,
+    ServerDisconnectedError,
+    ServerTimeoutError,
+)
 from aiokafka import AIOKafkaProducer
 
 import config.config as config
@@ -14,14 +22,6 @@ from config.config import app_config
 from modules.scraper import Scraper
 from modules.validation.player import Player
 from utils.http_exception_handler import InvalidResponse
-from aiohttp.client_exceptions import (
-    ServerTimeoutError,
-    ServerDisconnectedError,
-    ClientConnectorError,
-    ContentTypeError,
-    ClientOSError,
-)
-from asyncio import Queue
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,7 @@ class Worker:
         self.count_tasks = 0
 
     async def initialize(self):
+        await asyncio.sleep(random.randint(1, 10))
         logger.info(f"{self.name} - initializing worker")
         self.producer = AIOKafkaProducer(
             bootstrap_servers=app_config.KAFKA_HOST,  # Kafka broker address
@@ -62,7 +63,6 @@ class Worker:
         return
 
     async def run(self):
-        logger.info(f"{self.name} - Running")
         while True:
             if self.scraper.sleeping:
                 await asyncio.sleep(1)
@@ -101,11 +101,13 @@ class Worker:
                 f"{self.name} - invalid response, from lookup_hiscores {player.name=}"
             )
             await self.send_player(player)
+            await asyncio.sleep(max(self.errors * 2, 1))
             self.state = WorkerState.FREE
             self.errors += 1
             return
         except ClientHttpProxyError:
             logger.warning(f"{self.name} - ClientHttpProxyError")
+            await asyncio.sleep(max(self.errors * 2, 5))
             await self.send_player(player)
             self.errors += 1
             return
