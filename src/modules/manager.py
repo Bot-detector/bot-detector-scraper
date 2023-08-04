@@ -105,12 +105,18 @@ class Manager:
 
         while True:
             qsize = self.message_queue.qsize()
-            available_workers = [w for w in self.workers if w.state != WorkerState.FREE]
+
+            available_workers = [
+                w for w in self.workers if w.state != WorkerState.BROKEN
+            ]
             broken_workers = [w for w in self.workers if w.state == WorkerState.BROKEN]
+
             sum_rows = sum([w.count_tasks for w in self.workers])
             sum_time = int(time.time()) - start_time
             real_its = sum_rows / sum_time
+
             GLOBAL_SPEED.append(real_its)
+
             logger.info(
                 f"{self.name} - {qsize=} - "
                 f"{sum_rows}/{sum_time} - {real_its:.2f} it/s - "
@@ -128,4 +134,14 @@ class Manager:
             logger.info(
                 f"{self.name} - GLOBAL_SPEED={global_speed:.2f} - {COUNT_MANAGER=} - {len(GLOBAL_SPEED)=}"
             )
+
+            # one in six re enable worker
+            if broken_workers:
+                _rand = random.randint(0, 6)
+                if _rand == 0:
+                    worker = broken_workers[0]
+                    logger.info(f"{self.name} - re-enabeling - {worker.name=}")
+                    worker.state = WorkerState.FREE
+                    worker.errors = 0
+                    asyncio.ensure_future(worker.run())
             await asyncio.sleep(10)

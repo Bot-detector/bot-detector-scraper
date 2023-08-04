@@ -54,6 +54,8 @@ class Worker:
         return self
 
     async def destroy(self):
+        logger.error(f"{self.name} - destroying")
+        await asyncio.sleep(60)
         await self.session.close()
         await self.producer.stop()
 
@@ -68,23 +70,27 @@ class Worker:
                 await asyncio.sleep(1)
                 continue
 
+            if self.state == WorkerState.BROKEN:
+                logger.error(f"{self.name} - breaking")
+                break
+
             player: Player = await self.message_queue.get()
 
             asyncio.ensure_future(self.scrape_player(player))
             # await self.scrape_player(player)
             self.message_queue.task_done()
-            self.count_tasks += 1
+
+        # await self.destroy()
 
     async def scrape_player(self, player: Player):
-        self.state = WorkerState.WORKING
-        hiscore = None
-
-        if self.errors > 5:
+        if self.errors > 5 or self.state == WorkerState.BROKEN:
             logger.error(f"{self.name} - to many errors, killing worker")
-            await self.send_player(player)
-            await asyncio.sleep(60)
             self.state = WorkerState.BROKEN
+            await self.send_player(player)
             return
+
+        hiscore = None
+        self.state = WorkerState.WORKING
 
         try:
             player, hiscore = await self.scraper.lookup_hiscores(player, self.session)
@@ -98,25 +104,34 @@ class Worker:
         ) as e:
             logger.error(f"{self.name} - {str(e)}")
             logger.warning(
-                f"{self.name} - invalid response, from lookup_hiscores {player.name=}"
+                f"{self.name} - invalid response, {player.name=} - {self.errors=}"
             )
             await self.send_player(player)
             await asyncio.sleep(max(self.errors * 2, 1))
-            self.state = WorkerState.FREE
+
+            if self.state != WorkerState.BROKEN:
+                self.state = WorkerState.FREE
+
             self.errors += 1
             return
         except ClientHttpProxyError:
-            logger.warning(f"{self.name} - ClientHttpProxyError")
+            logger.warning(f"{self.name} - ClientHttpProxyError - {self.errors=}")
             await asyncio.sleep(max(self.errors * 2, 5))
             await self.send_player(player)
+
+            if self.state != WorkerState.BROKEN:
+                self.state = WorkerState.FREE
+
             self.errors += 1
             return
 
-        err = f"{self.name} - expected the variable player to be of class Player,\n\t{player=}"
+        err = f"{self.name} - expected class Player, Received: {player=}"
         assert isinstance(player, Player), err
 
         data = {"player": player.dict(), "hiscores": hiscore}
         asyncio.ensure_future(self.producer.send(topic="scraper", value=data))
+
         self.state = WorkerState.FREE
+        self.count_tasks += 1
         self.errors = 0
         return
