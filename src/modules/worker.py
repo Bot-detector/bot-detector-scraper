@@ -40,6 +40,7 @@ class Worker:
         self.message_queue = message_queue
         self.errors = 0
         self.count_tasks = 0
+        self.tasks = []
 
     async def initialize(self):
         await asyncio.sleep(random.randint(1, 10))
@@ -71,12 +72,16 @@ class Worker:
                 continue
 
             if self.state == WorkerState.BROKEN:
-                logger.error(f"{self.name} - breaking")
+                logger.error(f"{self.name} - breaking")        
+                for task in self.tasks:
+                    task.cancel()
                 break
 
             player: Player = await self.message_queue.get()
 
-            asyncio.ensure_future(self.scrape_player(player))
+            task = asyncio.ensure_future(self.scrape_player(player))
+            self.tasks.append(task)
+
             # await self.scrape_player(player)
             self.message_queue.task_done()
 
@@ -93,6 +98,7 @@ class Worker:
         self.state = WorkerState.WORKING
 
         try:
+            raise ServerTimeoutError("THIS IS FOR TASTING ^.^")
             player, hiscore = await self.scraper.lookup_hiscores(player, self.session)
         except (
             ServerTimeoutError,
