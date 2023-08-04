@@ -16,15 +16,23 @@ from modules.validation.player import Player
 from modules.worker import Worker, WorkerState
 
 logger = logging.getLogger(__name__)
+GLOBAL_SPEED = deque(maxlen=10)
+COUNT_MANAGER = 0
 
 
 class Manager:
     def __init__(self, proxies: list[str]):
+        global COUNT_MANAGER
+        COUNT_MANAGER += 1
         # Initialize the Manager with a unique name and provided proxies
         self.name = str(uuid.uuid4())[-8:]
         self.proxies: list[str] = proxies
         self.workers: list[Worker] = []
-        self.message_queue = Queue(maxsize=len(proxies) * 4)
+
+        min_size = 100
+        max_size = len(proxies) * 4
+        max_size = min_size if max_size < min_size else max_size
+        self.message_queue = Queue(maxsize=max_size)
 
     async def destroy(self):
         # Stop the consumer and clean up workers upon destruction
@@ -38,7 +46,7 @@ class Manager:
         # Initialize the workers and consumer for Kafka
         logger.info(f"{self.name} - initiating workers")
         self.workers = await asyncio.gather(
-            *[Worker(proxy).initialize() for proxy in self.proxies]
+            *[Worker(proxy, self.message_queue).initialize() for proxy in self.proxies]
         )
 
         logger.info(f"{self.name} - initiating consumer")
@@ -58,10 +66,8 @@ class Manager:
         # Start the Manager, initializing necessary components and processing rows from Kafka
         await self.initialize()
         try:
-            asyncio.ensure_future(self.process_rows())
             asyncio.ensure_future(self.get_rows_from_kafka())
-            while True:
-                await asyncio.sleep(1)
+            await self.process_rows()
         except Exception as e:
             logger.error(e)
         finally:
@@ -85,51 +91,39 @@ class Manager:
             await self.consumer.stop()
 
     async def process_rows(self):
+        global GLOBAL_SPEED
+        global COUNT_MANAGER
         # Process rows from the message queue using available workers
         logger.info(f"{self.name} - start processing rows")
-        last_send_time = int(time.time())
-        batch = []
-        total_rows = deque(maxlen=100)
-        total_time = deque(maxlen=100)
+        start_time = int(time.time()) - 1
+        init = False
+        for worker in self.workers:
+            asyncio.ensure_future(worker.run())
 
         while True:
-            message: Player = await self.message_queue.get()
-            batch.append(message)
-            delta_send_time = int(time.time()) - last_send_time
+            qsize = self.message_queue.qsize()
+            available_workers = [w for w in self.workers if w.state != WorkerState.FREE]
+            broken_workers = [w for w in self.workers if w.state == WorkerState.BROKEN]
+            sum_rows = sum([w.count_tasks for w in self.workers])
+            sum_time = int(time.time()) - start_time
+            real_its = sum_rows / sum_time
+            GLOBAL_SPEED.append(real_its)
+            logger.info(
+                f"{self.name} - {qsize=} - "
+                f"{sum_rows}/{sum_time} - {real_its:.2f} it/s - "
+                f"available_workers={len(available_workers)} - broken_workers={len(broken_workers)}"
+            )
 
-            available_workers = [w for w in self.workers if w.state == WorkerState.FREE]
-
-            if not available_workers or not batch:
-                await asyncio.sleep(1)
+            if GLOBAL_SPEED.maxlen != COUNT_MANAGER * 4:
+                GLOBAL_SPEED = deque(maxlen=COUNT_MANAGER * 4)
+            
+            if not init:
+                init = True
+                await asyncio.sleep(10)
                 continue
 
-            if len(batch) >= len(available_workers) or delta_send_time > 60:
-                last_send_time = int(time.time())
-                num_tasks = min(len(available_workers), len(batch))
-
-                tasks = [
-                    worker.scrape_player(player)
-                    for worker, player in zip(available_workers, batch)
-                ]
-                await asyncio.gather(*tasks)
-
-                qsize = self.message_queue.qsize()
-                broken_workers = [
-                    w for w in self.workers if w.state == WorkerState.BROKEN
-                ]
-
-                total_rows.append(num_tasks)
-                total_time.append(delta_send_time)
-
-                sum_rows = sum(total_rows)
-                sum_time = sum(total_time)
-                sum_time = sum_time if sum_time > 0 else 1
-                real_its = sum_rows / sum_time
-
-                logger.info(
-                    f"{self.name} - {qsize=} - "
-                    f"{sum_rows}/{sum_time} - {real_its:.2f} it/s - "
-                    f"available_workers={len(available_workers)} - broken_workers={len(broken_workers)}"
-                )
-                batch = batch[num_tasks:]
-            self.message_queue.task_done()
+            global_speed = sum(GLOBAL_SPEED) / (len(GLOBAL_SPEED) // COUNT_MANAGER)
+            logger.info(
+                f"{self.name} - GLOBAL_SPEED={global_speed:.2f} - {COUNT_MANAGER=} - {len(GLOBAL_SPEED)=}"
+            )
+            await asyncio.sleep(10)

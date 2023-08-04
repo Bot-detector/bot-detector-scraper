@@ -21,6 +21,7 @@ from aiohttp.client_exceptions import (
     ContentTypeError,
     ClientOSError,
 )
+from asyncio import Queue
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +33,13 @@ class WorkerState(Enum):
 
 
 class Worker:
-    def __init__(self, proxy: str):
+    def __init__(self, proxy: str, message_queue: Queue):
         self.name = str(uuid.uuid4())[-8:]
         self.state: WorkerState = WorkerState.FREE
         self.proxy: str = proxy
+        self.message_queue = message_queue
         self.errors = 0
+        self.count_tasks = 0
 
     async def initialize(self):
         logger.info(f"{self.name} - initializing worker")
@@ -58,6 +61,20 @@ class Worker:
         await self.producer.flush()
         return
 
+    async def run(self):
+        logger.info(f"{self.name} - Running")
+        while True:
+            if self.scraper.sleeping:
+                await asyncio.sleep(1)
+                continue
+
+            player: Player = await self.message_queue.get()
+
+            asyncio.ensure_future(self.scrape_player(player))
+            # await self.scrape_player(player)
+            self.message_queue.task_done()
+            self.count_tasks += 1
+
     async def scrape_player(self, player: Player):
         self.state = WorkerState.WORKING
         hiscore = None
@@ -77,29 +94,27 @@ class Worker:
             ClientConnectorError,
             ContentTypeError,
             ClientOSError,
-            InvalidResponse
+            InvalidResponse,
         ) as e:
             logger.error(f"{self.name} - {str(e)}")
             logger.warning(
                 f"{self.name} - invalid response, from lookup_hiscores {player.name=}"
             )
             await self.send_player(player)
-            await asyncio.sleep(10)
             self.state = WorkerState.FREE
             self.errors += 1
             return
         except ClientHttpProxyError:
             logger.warning(f"{self.name} - ClientHttpProxyError")
             await self.send_player(player)
-            await asyncio.sleep(10)
             self.errors += 1
             return
 
         err = f"{self.name} - expected the variable player to be of class Player,\n\t{player=}"
         assert isinstance(player, Player), err
 
-        output = {"player": player.dict(), "hiscores": hiscore}
-        asyncio.ensure_future(self.producer.send(topic="scraper", value=output))
+        data = {"player": player.dict(), "hiscores": hiscore}
+        asyncio.ensure_future(self.producer.send(topic="scraper", value=data))
         self.state = WorkerState.FREE
         self.errors = 0
         return

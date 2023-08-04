@@ -10,7 +10,6 @@ from modules.proxy_manager import ProxyManager
 
 logger = logging.getLogger(__name__)
 
-
 def batchify_list(input_list: list, batch_size: int) -> list[list]:
     return [
         input_list[i : i + batch_size] for i in range(0, len(input_list), batch_size)
@@ -55,7 +54,6 @@ def create_and_run_threads(proxy_batches: list[list]):
 
     for thread in threads:
         thread.join()
-
 
 async def main():
     logger.info(f"{app_config.ENDPOINT=}")
