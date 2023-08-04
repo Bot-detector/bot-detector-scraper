@@ -120,7 +120,10 @@ class Manager:
 
                 total_rows.append(num_tasks)
                 total_time.append(delta_send_time)
-                real_its = sum(total_rows) / sum(total_time)
+
+                sum_rows = sum(total_rows)
+                sum_time = sum(total_time) if sum(total_time) > 0 else 1
+                real_its = sum_rows / sum_time
 
                 logger.info(
                     f"{self.name} - {qsize=} - {real_its:.2f} it/s - {len(available_workers)=} - {len(broken_workers)=}"
