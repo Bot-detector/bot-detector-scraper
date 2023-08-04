@@ -17,6 +17,7 @@ class Scraper:
         self.history = deque(maxlen=calls_per_minute)
         self.highscore_api = HighscoreApi(proxy=proxy)
         self.runemetrics_api = RuneMetricsApi(proxy)
+        self.sleeping = False
 
     async def rate_limit(self):
         """
@@ -24,15 +25,22 @@ class Scraper:
         """
         self.history.append(int(time.time()))
         maxlen = self.history.maxlen
-        if len(self.history) == maxlen:
-            head = self.history[0]
-            tail = self.history[-1]
-            span = tail - head
-            if span < 60:
-                sleep = 60 - span
-                if sleep % 10 == 0:
-                    logger.warning(f"{self.worker_name} - Rate limit reached, sleeping {sleep} seconds")
-                await asyncio.sleep(sleep)
+
+        if not len(self.history) == maxlen:
+            return
+        
+        head = self.history[0]
+        tail = self.history[-1]
+        span = tail - head
+
+        if span < 60:
+            sleep = 60 - span
+            if sleep % 10 == 0:
+                logger.warning(f"{self.worker_name} - Rate limit reached, sleeping {sleep} seconds")
+            logger.warning(f"{self.worker_name} - Rate limit reached, sleeping {sleep} seconds")
+            self.sleeping = True
+            await asyncio.sleep(sleep)
+            self.sleeping = False
         return
 
     async def lookup_hiscores(self, player: Player, session: ClientSession) -> Union[Player, dict]:
