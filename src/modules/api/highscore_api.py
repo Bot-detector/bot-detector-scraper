@@ -52,9 +52,11 @@ class HighscoreApi:
         status = response.status
 
         if response.history and any(resp.status == 302 for resp in response.history):
-            logger.warning(f"Redirection occured: {response.url} - {response.history[0].url}")
+            logger.warning(
+                f"Redirection occured: {response.url} - {response.history[0].url}"
+            )
             return None
-        
+
         match status:
             # OK
             case 200:
