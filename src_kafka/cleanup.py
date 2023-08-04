@@ -15,7 +15,7 @@ def main():
         [
             NewTopic(
                 name="player",
-                num_partitions=3,
+                num_partitions=20,
                 replication_factor=1,
                 topic_configs={
                     # "session.timeout.ms":60000
