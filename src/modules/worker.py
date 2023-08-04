@@ -79,9 +79,9 @@ class Worker:
             ClientOSError,
             InvalidResponse
         ) as e:
-            logger.error(f"{self.name} - {e}")
+            logger.error(f"{self.name} - {str(e)}")
             logger.warning(
-                f"{self.name} - invalid response, from lookup_hiscores\n\t{player.dict()}"
+                f"{self.name} - invalid response, from lookup_hiscores {player.name=}"
             )
             await self.send_player(player)
             await asyncio.sleep(10)
