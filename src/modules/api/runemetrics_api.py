@@ -28,7 +28,10 @@ class RuneMetricsApi:
 
         async with session.get(url, proxy=self.proxy) as response:
             data: dict = await self._handle_response_status(response, player)
-            assert data is not None, "data cannot be none"
+            
+            if data is None:
+                await asyncio.sleep(1)
+                return await self.lookup_runemetrics(player, session)
 
             logger.info(f"found {player_name} on runemetrics")
 
@@ -53,6 +56,11 @@ class RuneMetricsApi:
         self, response: ClientResponse, player: Player
     ) -> dict:
         status = response.status
+
+        if response.history and any(resp.status == 302 for resp in response.history):
+            logger.warning(f"Redirection occured: {response.url} - {response.history[0].url}")
+            return None
+        
         match status:
             # OK
             case 200:

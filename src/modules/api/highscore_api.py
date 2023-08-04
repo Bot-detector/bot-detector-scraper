@@ -36,7 +36,11 @@ class HighscoreApi:
 
         async with session.get(url, proxy=self.proxy) as response:
             data = await self._handle_response_status(response, player)
-            assert data is not None, f"Data should not be None"
+
+            if data is None:
+                await asyncio.sleep(1)
+                data = await self.lookup_hiscores(player, session)
+
             hiscore = await self._parse_hiscores(data)
             hiscore["Player_id"] = player.id
             hiscore["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
@@ -46,6 +50,11 @@ class HighscoreApi:
         self, response: ClientResponse, player: Player
     ) -> dict:
         status = response.status
+
+        if response.history and any(resp.status == 302 for resp in response.history):
+            logger.warning(f"Redirection occured: {response.url} - {response.history[0].url}")
+            return None
+        
         match status:
             # OK
             case 200:
@@ -71,6 +80,7 @@ class HighscoreApi:
                 body = await response.text()
                 logger.error(
                     f"Unhandled status code {status}.\n"
+                    f"URL: {response.url}\n"
                     f"Header: {response.headers}\n"
                     f"Body: {body}"
                 )
