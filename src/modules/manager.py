@@ -87,7 +87,7 @@ class Manager:
     async def process_rows(self):
         # Process rows from the message queue using available workers
         logger.info(f"{self.name} - start processing rows")
-        last_send_time = int(time.time()) - 1
+        last_send_time = int(time.time())
         batch = []
         total_rows = deque(maxlen=100)
         total_time = deque(maxlen=100)
@@ -104,6 +104,7 @@ class Manager:
                 continue
 
             if len(batch) >= len(available_workers) or delta_send_time > 60:
+                last_send_time = int(time.time())
                 num_tasks = min(len(available_workers), len(batch))
 
                 tasks = [
@@ -112,7 +113,6 @@ class Manager:
                 ]
                 await asyncio.gather(*tasks)
 
-                last_send_time = int(time.time())
                 qsize = self.message_queue.qsize()
                 broken_workers = [
                     w for w in self.workers if w.state == WorkerState.BROKEN
@@ -122,11 +122,14 @@ class Manager:
                 total_time.append(delta_send_time)
 
                 sum_rows = sum(total_rows)
-                sum_time = sum(total_time) if sum(total_time) > 0 else 1
+                sum_time = sum(total_time)
+                sum_time = sum_time if sum_time > 0 else 1
                 real_its = sum_rows / sum_time
 
                 logger.info(
-                    f"{self.name} - {qsize=} - {real_its:.2f} it/s - {len(available_workers)=} - {len(broken_workers)=}"
+                    f"{self.name} - {qsize=} - "
+                    f"{sum_rows}/{sum_time} - {real_its:.2f} it/s - "
+                    f"available_workers={len(available_workers)} - broken_workers={len(broken_workers)}"
                 )
                 batch = batch[num_tasks:]
             self.message_queue.task_done()
