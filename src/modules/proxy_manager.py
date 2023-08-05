@@ -41,7 +41,7 @@ class ProxyManager:
             try:
                 proxies_str = await self._fetch_proxy_list(session)
                 self.proxies = self._parse_proxy_list(proxies_str)
-            except Exception as e:
-                logger.error(str(e))
+            except Exception as error:
+                logger.error(f"{type(error).__name__}: {str(error)}")
                 raise Exception("error fetching proxy list")
         return self.proxies

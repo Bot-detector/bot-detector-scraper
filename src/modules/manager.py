@@ -35,6 +35,7 @@ class Manager:
         self.message_queue = Queue(maxsize=max_size)
 
     async def destroy(self):
+        logger.info(f"{self.name} - destroying")
         # Stop the consumer and clean up workers upon destruction
         await self.consumer.stop()
 
@@ -63,13 +64,18 @@ class Manager:
         self.consumer = consumer
 
     async def run(self):
+        global GLOBAL_SPEED
+        global COUNT_MANAGER
         # Start the Manager, initializing necessary components and processing rows from Kafka
         await self.initialize()
         try:
+            if GLOBAL_SPEED.maxlen != COUNT_MANAGER * 4:
+                GLOBAL_SPEED = deque(maxlen=COUNT_MANAGER * 4)
             asyncio.ensure_future(self.get_rows_from_kafka())
-            await self.process_rows()
-        except Exception as e:
-            logger.error(e)
+            self.process_rows()
+            await self.start_logger()
+        except Exception as error:
+            logger.error(f"{self.name} - {type(error).__name__}: {str(error)}")
         finally:
             await self.destroy()
 
@@ -84,64 +90,85 @@ class Manager:
                 if len(player.name) <= 13:
                     await self.message_queue.put(player)
                 await self.consumer.commit()
-        except Exception as e:
-            logger.error(e)
+        except Exception as error:
+            logger.error(f"{self.name} - {type(error).__name__}: {str(error)}")
         finally:
             logger.warning(f"{self.name} - stopping consumer")
             await self.consumer.stop()
 
-    async def process_rows(self):
+    def restart_worker(self, broken_workers: list):
+        if not broken_workers:
+            return
+
+        worker: Worker = random.choice(broken_workers)
+        chance = random.randint(1, 6)
+
+        if chance == 1:
+            logger.info(f"{self.name} - re-enabeling - {worker.name=}")
+            worker.errors = 0
+            worker.tasks = []
+            worker.update_state(WorkerState.FREE)
+            asyncio.ensure_future(worker.run())
+        return
+
+    def log_worker_status(
+        self, sum_rows:int, sum_time:int, real_its:int, broken_workers:list
+    ):
+        available_workers = len(self.workers) - len(broken_workers)
+        qsize = self.message_queue.qsize()
+        logger.info(
+            f"{self.name} - {qsize=} - "
+            f"{sum_rows}/{sum_time} - {real_its:.2f} it/s - "
+            f"available_workers={available_workers} - broken_workers={len(broken_workers)}"
+        )
+        return
+    
+    def log_global_speed(self):
         global GLOBAL_SPEED
         global COUNT_MANAGER
-        # Process rows from the message queue using available workers
-        logger.info(f"{self.name} - start processing rows")
+
+        if (len(GLOBAL_SPEED) // COUNT_MANAGER) == 0:
+            return
+        
+        gs = sum(GLOBAL_SPEED) / (len(GLOBAL_SPEED) // COUNT_MANAGER)
+        logger.info(
+            f"{self.name} - "
+            f"GLOBAL_SPEED={gs:.2f} - "
+            f"{COUNT_MANAGER=} - {len(GLOBAL_SPEED)=}"
+        )
+        return
+
+    async def start_logger(self):
         start_time = int(time.time()) - 1
-        init = False
-        for worker in self.workers:
-            asyncio.ensure_future(worker.run())
-
-        # make sure everything is properly initialized
-        await asyncio.sleep(15)
-
         while True:
-            qsize = self.message_queue.qsize()
-
-            available_workers = [
-                w for w in self.workers if w.state != WorkerState.BROKEN
-            ]
-            broken_workers = [w for w in self.workers if w.state == WorkerState.BROKEN]
-
+            broken_workers = [w for w in self.workers if w.is_broken()]
+            
             sum_rows = sum([w.count_tasks for w in self.workers])
             sum_time = int(time.time()) - start_time
+
+            if sum_time == 0:
+                continue
+
             real_its = sum_rows / sum_time
 
             GLOBAL_SPEED.append(real_its)
 
-            logger.info(
-                f"{self.name} - {qsize=} - "
-                f"{sum_rows}/{sum_time} - {real_its:.2f} it/s - "
-                f"available_workers={len(available_workers)} - broken_workers={len(broken_workers)}"
+            self.log_worker_status(
+                sum_rows=sum_rows, 
+                sum_time=sum_time, 
+                real_its=real_its, 
+                broken_workers=broken_workers
             )
 
-            if not init:
-                if GLOBAL_SPEED.maxlen != COUNT_MANAGER * 4:
-                    GLOBAL_SPEED = deque(maxlen=COUNT_MANAGER * 4)
-                init = True
-                await asyncio.sleep(10)
-                continue
+            self.log_global_speed()
 
-            global_speed = sum(GLOBAL_SPEED) / (len(GLOBAL_SPEED) // COUNT_MANAGER)
-            logger.info(
-                f"{self.name} - GLOBAL_SPEED={global_speed:.2f} - {COUNT_MANAGER=} - {len(GLOBAL_SPEED)=}"
-            )
-
-            # one in six re enable worker
-            if broken_workers:
-                _rand = random.randint(0, 6)
-                if _rand == 0:
-                    worker = broken_workers[0]
-                    logger.info(f"{self.name} - re-enabeling - {worker.name=}")
-                    worker.state = WorkerState.FREE
-                    worker.errors = 0
-                    asyncio.ensure_future(worker.run())
+            # random chance to restart a broken worker if there are any
+            self.restart_worker(broken_workers)
             await asyncio.sleep(10)
+
+    def process_rows(self):
+        # Process rows from the message queue using available workers
+        logger.info(f"{self.name} - start processing rows")
+
+        for worker in self.workers:
+            asyncio.ensure_future(worker.run())
