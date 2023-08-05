@@ -30,7 +30,7 @@ class Scraper:
         """
         self.history.append(int(time.time()))
         maxlen = self.history.maxlen
-
+        MINUTE = 60
         if not len(self.history) == maxlen:
             return
 
@@ -38,8 +38,8 @@ class Scraper:
         tail = self.history[-1]
         span = tail - head
 
-        if span < 60:
-            sleep = 60 - span
+        if span < MINUTE:
+            sleep = MINUTE - span
             if sleep % 10 == 0:
                 logger.warning(
                     f"{self.worker_name} - Rate limit reached, sleeping {sleep} seconds"
