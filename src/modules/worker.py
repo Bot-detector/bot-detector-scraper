@@ -73,9 +73,9 @@ class Worker:
                 if task.done():
                     self.tasks.remove(task)
             
-            if len(self.tasks) > 5 or self.errors > 5 or self.scraper.sleeping:
-                await asyncio.sleep(1)
-                continue
+            # if len(self.tasks) > 5 or self.errors > 5 or self.scraper.sleeping:
+            #     await asyncio.sleep(1)
+            #     continue
 
             if self.state == WorkerState.BROKEN:
                 logger.error(f"{self.name} - breaking")
@@ -98,6 +98,7 @@ class Worker:
     
             # await self.scrape_player(player)
             self.message_queue.task_done()
+            await asyncio.sleep(0.01)
 
         # await self.destroy()
 
