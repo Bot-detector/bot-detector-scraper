@@ -41,6 +41,7 @@ class Worker:
         self.errors = 0
         self.count_tasks = 0
         self.tasks = []
+        self.semaphore = asyncio.Semaphore(value=5)
 
     async def initialize(self):
         await asyncio.sleep(random.randint(1, 10))
@@ -83,8 +84,9 @@ class Worker:
 
             player: Player = await self.message_queue.get()
 
-            task = asyncio.ensure_future(self.scrape_player(player))
-            self.tasks.append(task)
+            async with self.semaphore:
+                task = asyncio.ensure_future(self.scrape_player(player))
+                self.tasks.append(task)
 
             # await self.scrape_player(player)
             self.message_queue.task_done()
