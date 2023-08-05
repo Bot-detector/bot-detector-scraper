@@ -97,19 +97,28 @@ class Manager:
             logger.warning(f"{self.name} - stopping consumer")
             await self.consumer.stop()
 
-    def restart_worker(self, broken_workers: list):
+    async def restart_worker(self, broken_workers: list):
         if not broken_workers:
             return
 
         worker: Worker = random.choice(broken_workers)
+        await worker.destroy()
+
+        proxy = worker.proxy
         chance = random.randint(1, 2)
 
         if chance == 1:
             logger.info(f"{self.name} - re-enabeling - {worker.name=}")
-            worker.errors = 0
-            worker.tasks = []
-            worker.update_state(WorkerState.FREE)
+            self.workers.remove(worker)
+            del worker
+
+            worker = Worker(proxy, self.message_queue)
+            worker = await worker.initialize()
+
             asyncio.ensure_future(worker.run())
+            
+            self.workers.append(worker)
+            print(len(self.workers), worker.name, [w.name for w in self.workers])
         return
 
     def log_worker_status(
@@ -145,6 +154,9 @@ class Manager:
     async def start_logger(self):
         start_time = int(time.time()) - 1
         while True:
+            # for worker in self.workers:
+            #     logger.info((worker.name, worker.state, worker.errors, worker.count_tasks))
+
             broken_workers = [w for w in self.workers if w.is_broken()]
             
             sum_rows = sum([w.count_tasks for w in self.workers])
@@ -168,7 +180,7 @@ class Manager:
             self.log_global_speed()
 
             # random chance to restart a broken worker if there are any
-            self.restart_worker(broken_workers)
+            await self.restart_worker(broken_workers)
             await asyncio.sleep(10)
 
     def process_rows(self):
