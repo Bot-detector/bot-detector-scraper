@@ -97,19 +97,18 @@ class Worker:
         for task in self.tasks:
             input = None
             if asyncio.iscoroutine(task):
+                task: asyncio.Coroutine
                 # Assuming the coroutine has an attribute named "player"
                 input = task.cr_frame.f_locals.get("player")
-                task.cancel()
+                task.close()
             elif asyncio.isfuture(task):
-                # Assuming the future has an attribute named "player"
-                input = task._coro.cr_frame.f_locals.get("player")
+                task: asyncio.Future
                 task.cancel()
             else:
                 logger.info(f"unkown task: {type(task)=}")
             
             if input is not None:
                 asyncio.ensure_future(self.message_queue.put(input))
-        self.tasks.clear()
         return
 
     async def run(self):
@@ -119,6 +118,8 @@ class Worker:
             if self.state == WorkerState.BROKEN:
                 logger.error(f"{self.name} - breaking")
                 self.cancel_tasks()
+                self.cleanup_tasks()
+                _ = [print("risidual task", task) for task in self.tasks]
                 break
 
             player: Player = await self.message_queue.get()
@@ -132,7 +133,6 @@ class Worker:
             self.message_queue.task_done()
             await asyncio.sleep(0.01)
 
-        # await self.destroy()
 
     async def handle_errors(self, player: Player, error_type, sleep_time, error):
         logger.error(f"{self.name} - {error_type.__name__}: {str(error)}")
