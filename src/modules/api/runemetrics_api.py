@@ -28,7 +28,7 @@ class RuneMetricsApi:
 
         async with session.get(url, proxy=self.proxy) as response:
             data: dict = await self._handle_response_status(response, player)
-            
+
             if data is None:
                 await asyncio.sleep(0.1)
                 return await self.lookup_runemetrics(player, session)
@@ -58,8 +58,16 @@ class RuneMetricsApi:
         status = response.status
 
         if response.history and any(resp.status == 302 for resp in response.history):
-            logger.warning(f"Redirection occured: {response.url} - {response.history[0].url}")
+            logger.warning(
+                f"Redirection occured: {response.url} - {response.history[0].url}"
+            )
             return None
+        
+        basic_error = (
+            f"status code {status}.\n"
+            f"URL: {response.url}\n"
+            f"Header: {response.headers}\n"
+        )
         
         match status:
             # OK
@@ -67,10 +75,12 @@ class RuneMetricsApi:
                 return await response.json()
             # NOK, but known
             case 429:
-                logger.warning(status)
+                logger.warning(basic_error)
                 await asyncio.sleep(15)
             case s if 500 <= s < 600:
-                logger.warning(status)
+                body = await response.text()
+                logger.warning(basic_error)
+                logger.warning(f"Body:\n{body}\n")
                 await asyncio.sleep(5)
             case 403:
                 logger.warning(status)
