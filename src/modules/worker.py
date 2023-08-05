@@ -3,7 +3,7 @@ import json
 import logging
 import random
 import uuid
-from asyncio import Queue
+from asyncio import Queue, Task
 from enum import Enum
 
 import aiohttp
@@ -52,7 +52,7 @@ class Worker:
         self.errors = 0
         self.count_tasks = 0
         self.tasks = []
-        self.semaphore = asyncio.Semaphore(value=5)
+        self.semaphore = asyncio.Semaphore(value=50)
 
     async def initialize(self):
         await asyncio.sleep(random.randint(1, 10))
@@ -68,7 +68,6 @@ class Worker:
 
     async def destroy(self):
         logger.error(f"{self.name} - destroying worker")
-        await asyncio.sleep(60)
         await self.session.close()
         await self.producer.stop()
 
@@ -84,97 +83,73 @@ class Worker:
     def is_broken(self) -> bool:
         return self.state == WorkerState.BROKEN
 
-    def cleanup_tasks(self):
-        for task in self.tasks:
-            if task.done():
-                self.tasks.remove(task)
-        return
-
-    def cancel_tasks(self):
-        if not self.tasks:
-            return
-    
-        for task in self.tasks:
-            input = None
-            if asyncio.iscoroutine(task):
-                task: asyncio.Coroutine
-                # Assuming the coroutine has an attribute named "player"
-                input = task.cr_frame.f_locals.get("player")
-                task.close()
-            elif asyncio.isfuture(task):
-                task: asyncio.Future
-                task.cancel()
-            else:
-                logger.info(f"unkown task: {type(task)=}")
-            
-            if input is not None:
-                asyncio.ensure_future(self.message_queue.put(input))
-        return
-
     async def run(self):
         while True:
-            self.cleanup_tasks()
-
             if self.state == WorkerState.BROKEN:
-                logger.error(f"{self.name} - breaking")
-                self.cancel_tasks()
-                self.cleanup_tasks()
-                _ = [print("risidual task", task) for task in self.tasks]
-                break
+                await asyncio.sleep(0.1)
+                continue
+
+            if self.semaphore._value == 0:
+                await asyncio.sleep(0.1)
+                continue
 
             player: Player = await self.message_queue.get()
 
-            async with self.semaphore:
-                task = asyncio.ensure_future(self.scrape_player(player))
-                self.tasks.append(task)
-                # print(len(self.tasks), self.semaphore._value)
+            asyncio.ensure_future(self.scrape_player(player))
+
+            # logger.debug(f"{self.name} - {self.semaphore._value=} - {player.name}")
 
             # await self.scrape_player(player)
             self.message_queue.task_done()
-            await asyncio.sleep(0.01)
-
+            await asyncio.sleep(0.1)
 
     async def handle_errors(self, player: Player, error_type, sleep_time, error):
-        logger.error(f"{self.name} - {error_type.__name__}: {str(error)}")
-        logger.debug(f"{self.name} - invalid response, {player.name=} - {self.errors=}")
+        logger.error(f"{self.name} - {error_type.__name__}: {str(error)} - {player.name=} - {self.errors=}")
         await self.send_player(player)
         await asyncio.sleep(sleep_time)
 
         if not self.is_broken():
-            self.state = WorkerState.FREE
+            self.update_state(WorkerState.FREE)
 
         self.errors += 1
         return
 
     async def scrape_player(self, player: Player):
-        if self.is_broken():
-            logger.warning("is broken")
-            self.update_state(WorkerState.BROKEN)
-            return
+        async with self.semaphore:
+            if self.is_broken():
+                logger.warning(f"{self.name} - is broken")
+                return
 
-        if self.errors > 5:
-            logger.error(f"{self.name} - to many errors, killing worker")
-            self.update_state(WorkerState.BROKEN)
-            await self.send_player(player)
-            return
+            if self.errors >= 5:
+                logger.error(f"{self.name} - to many errors, killing worker")
+                self.update_state(WorkerState.BROKEN)
+                await self.send_player(player)
+                return
 
-        hiscore = None
-        self.state = WorkerState.WORKING
+            hiscore = None
+            self.state = WorkerState.WORKING
 
-        try:
-            # raise ServerTimeoutError("THIS IS FOR TASTING ^.^")
-            player, hiscore = await self.scraper.lookup_hiscores(player, self.session)
-        except ERROR_TYPES as error:
-            error_type = type(error)
-            sleep_time = 1 if error_type != ClientHttpProxyError else 5
-            sleep_time = max(self.errors * 2, sleep_time)
-            await self.handle_errors(player, error_type, sleep_time, error)
-            return
+            try:
+                # simulate random crashes
+                # if random.randint(1, 2) == 1:
+                #     raise ServerTimeoutError("THIS IS FOR TASTING ^.^")
+                player, hiscore = await self.scraper.lookup_hiscores(player, self.session)
+            except ERROR_TYPES as error:
+                error_type = type(error)
+                sleep_time = 1 if error_type != ClientHttpProxyError else 5
+                sleep_time = max(self.errors * 2, sleep_time)
+                await self.handle_errors(player, error_type, sleep_time, error)
+                return
+            except Exception as error:
+                error_type = type(error)
+                sleep_time = max(self.errors * 2, 1)
+                await self.handle_errors(player, error_type, sleep_time, error)
+                return
 
-        data = {"player": player.dict(), "hiscores": hiscore}
-        asyncio.ensure_future(self.producer.send(topic="scraper", value=data))
+            data = {"player": player.dict(), "hiscores": hiscore}
+            asyncio.ensure_future(self.producer.send(topic="scraper", value=data))
 
-        self.update_state(WorkerState.FREE)
-        self.count_tasks += 1
-        self.errors = 0
+            self.update_state(WorkerState.FREE)
+            self.count_tasks += 1
+            self.errors = 0
         return
