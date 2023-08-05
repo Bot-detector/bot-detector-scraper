@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class Scraper:
     def __init__(
-        self, proxy: str, worker_name: str, calls_per_minute: int = 60
+        self, proxy: str, worker_name: str, calls_per_minute: int = 180
     ) -> None:
         self.proxy = proxy
         self.worker_name = worker_name
@@ -72,6 +72,7 @@ class Scraper:
         return player, highscore
 
     async def lookup_runemetrics(self, player: Player, session: ClientSession) -> dict:
+        await self.rate_limit()
         return await self.runemetrics_api.lookup_runemetrics(
             player=player, session=session
         )
