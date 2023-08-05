@@ -17,6 +17,7 @@ from modules.worker import Worker, WorkerState
 
 logger = logging.getLogger(__name__)
 GLOBAL_SPEED = deque(maxlen=10)
+GLOBAL_BROKEN_WORKERS = dict()
 COUNT_MANAGER = 0
 
 
@@ -101,7 +102,7 @@ class Manager:
             return
 
         worker: Worker = random.choice(broken_workers)
-        chance = random.randint(1, 6)
+        chance = random.randint(1, 2)
 
         if chance == 1:
             logger.info(f"{self.name} - re-enabeling - {worker.name=}")
@@ -126,15 +127,18 @@ class Manager:
     def log_global_speed(self):
         global GLOBAL_SPEED
         global COUNT_MANAGER
+        global GLOBAL_BROKEN_WORKERS
 
         if (len(GLOBAL_SPEED) // COUNT_MANAGER) == 0:
             return
         
-        gs = sum(GLOBAL_SPEED) / (len(GLOBAL_SPEED) // COUNT_MANAGER)
+        _global_speed = sum(GLOBAL_SPEED) / (len(GLOBAL_SPEED) // COUNT_MANAGER)
+        broken_workers = sum(v for v in GLOBAL_BROKEN_WORKERS.values())
         logger.info(
             f"{self.name} - "
-            f"GLOBAL_SPEED={gs:.2f} - "
-            f"{COUNT_MANAGER=} - {len(GLOBAL_SPEED)=}"
+            f"GLOBAL_SPEED={_global_speed:.2f} - "
+            f"{COUNT_MANAGER=} - {len(GLOBAL_SPEED)=} - "
+            f"GLOBAL_BROKEN_WORKERS={broken_workers}"
         )
         return
 
@@ -152,6 +156,7 @@ class Manager:
             real_its = sum_rows / sum_time
 
             GLOBAL_SPEED.append(real_its)
+            GLOBAL_BROKEN_WORKERS[self.name] = len(broken_workers)
 
             self.log_worker_status(
                 sum_rows=sum_rows, 
