@@ -67,26 +67,35 @@ class Worker:
         return
 
     async def run(self):
+        buffer = []
         while True:
-            if self.scraper.sleeping:
+            for task in self.tasks:
+                if task.done():
+                    self.tasks.remove(task)
+            
+            if len(self.tasks) > 5 or self.errors > 5 or self.scraper.sleeping:
                 await asyncio.sleep(1)
                 continue
 
             if self.state == WorkerState.BROKEN:
-                logger.error(f"{self.name} - breaking")  
+                logger.error(f"{self.name} - breaking")
                 for task in self.tasks:
-                    if task.done():
-                        continue
                     inputs = task.get_coro().cr_frame.f_locals['player']
+                    buffer.append(inputs)
                     await self.message_queue.put(inputs)
                     task.cancel()
                 break
-
-            player: Player = await self.message_queue.get()
+            
+            if buffer:
+                player: Player = buffer.pop()
+            else:
+                player: Player = await self.message_queue.get()
 
             async with self.semaphore:
                 task = asyncio.ensure_future(self.scrape_player(player))
                 self.tasks.append(task)
+                print(len(self.tasks), self.semaphore._value)
+    
 
             # await self.scrape_player(player)
             self.message_queue.task_done()
