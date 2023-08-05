@@ -89,19 +89,29 @@ class Worker:
             if task.done():
                 self.tasks.remove(task)
         return
-    
+
     def cancel_tasks(self):
         if not self.tasks:
             return
-        
-        for task in self.tasks:
-            input = task.get_coro().cr_frame.f_locals["player"]
-            asyncio.ensure_future(
-                self.message_queue.put(input)
-            )
-            task.cancel()
-        return
     
+        for task in self.tasks:
+            input = None
+            if asyncio.iscoroutine(task):
+                # Assuming the coroutine has an attribute named "player"
+                input = task.cr_frame.f_locals.get("player")
+                task.cancel()
+            elif asyncio.isfuture(task):
+                # Assuming the future has an attribute named "player"
+                input = task._coro.cr_frame.f_locals.get("player")
+                task.cancel()
+            else:
+                logger.info(f"unkown task: {type(task)=}")
+            
+            if input is not None:
+                asyncio.ensure_future(self.message_queue.put(input))
+        self.tasks.clear()
+        return
+
     async def run(self):
         while True:
             self.cleanup_tasks()
@@ -126,9 +136,7 @@ class Worker:
 
     async def handle_errors(self, player: Player, error_type, sleep_time, error):
         logger.error(f"{self.name} - {error_type.__name__}: {str(error)}")
-        logger.debug(
-            f"{self.name} - invalid response, {player.name=} - {self.errors=}"
-        )
+        logger.debug(f"{self.name} - invalid response, {player.name=} - {self.errors=}")
         await self.send_player(player)
         await asyncio.sleep(sleep_time)
 
