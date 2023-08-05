@@ -94,9 +94,8 @@ class Worker:
             async with self.semaphore:
                 task = asyncio.ensure_future(self.scrape_player(player))
                 self.tasks.append(task)
-                print(len(self.tasks), self.semaphore._value)
+                # print(len(self.tasks), self.semaphore._value)
     
-
             # await self.scrape_player(player)
             self.message_queue.task_done()
 
