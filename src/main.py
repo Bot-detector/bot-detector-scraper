@@ -51,6 +51,7 @@ async def main():
 
     proxy_manager = ProxyManager(app_config.PROXY_DOWNLOAD_URL)
     proxies = await proxy_manager.get_proxy_list()
+    
     # proxies = proxies[:5] # debugging
     proxy_batches = batchify_list(proxies, BATCH_SIZE)
 
