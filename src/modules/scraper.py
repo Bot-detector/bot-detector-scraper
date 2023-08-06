@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class Scraper:
     def __init__(
-        self, proxy: str, worker_name: str, calls_per_minute: int = 180
+        self, proxy: str, worker_name: str, calls_per_minute: int = 60
     ) -> None:
         self.proxy = proxy
         self.worker_name = worker_name
