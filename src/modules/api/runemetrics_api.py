@@ -80,7 +80,8 @@ class RuneMetricsApi:
             case s if 500 <= s < 600:
                 body = await response.text()
                 logger.warning(basic_error)
-                logger.warning(f"Body:\n{body}\n")
+                if s not in [503]:
+                    logger.warning(f"Body:\n{body}\n")
                 await asyncio.sleep(5)
             case 403:
                 logger.warning(status)
