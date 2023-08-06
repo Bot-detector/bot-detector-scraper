@@ -52,7 +52,7 @@ class Worker:
         self.errors = 0
         self.count_tasks = 0
         self.tasks = []
-        self.semaphore = asyncio.Semaphore(value=50)
+        self.semaphore = asyncio.Semaphore(value=2)
 
     async def initialize(self):
         await asyncio.sleep(random.randint(1, 10))
