@@ -134,3 +134,4 @@ docker-compose.yml
 
 src/test.py
 kafka/*
+test.json

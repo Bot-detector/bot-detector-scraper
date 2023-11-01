@@ -8,6 +8,7 @@ dotenv.load_dotenv()
 
 app_config = AppConfig(
     PROXY_DOWNLOAD_URL=os.getenv("PROXY_DOWNLOAD_URL"),
+    PROXY_API_KEY=os.getenv("PROXY_API_KEY"),
     ENDPOINT=os.getenv("ENDPOINT"),
     QUERY_SIZE=int(os.getenv("QUERY_SIZE")),
     TOKEN=os.getenv("TOKEN"),
