@@ -1,6 +1,6 @@
-
 from pydantic import BaseModel, HttpUrl
 from typing import Any
+
 
 class AppConfig(BaseModel):
     PROXY_DOWNLOAD_URL: HttpUrl
@@ -15,6 +15,6 @@ class AppConfig(BaseModel):
     SESSION_TIMEOUT: Any
 
     KAFKA_HOST: str
-    
+
     class Config:
         env_prefix = ""

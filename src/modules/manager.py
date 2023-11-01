@@ -116,13 +116,13 @@ class Manager:
             worker = await worker.initialize()
 
             asyncio.ensure_future(worker.run())
-            
+
             self.workers.append(worker)
             print(len(self.workers), worker.name, [w.name for w in self.workers])
         return
 
     def log_worker_status(
-        self, sum_rows:int, sum_time:int, real_its:int, broken_workers:list
+        self, sum_rows: int, sum_time: int, real_its: int, broken_workers: list
     ):
         available_workers = len(self.workers) - len(broken_workers)
         qsize = self.message_queue.qsize()
@@ -132,7 +132,7 @@ class Manager:
             f"available_workers={available_workers} - broken_workers={len(broken_workers)}"
         )
         return
-    
+
     def log_global_speed(self):
         global GLOBAL_SPEED
         global COUNT_MANAGER
@@ -140,7 +140,7 @@ class Manager:
 
         if (len(GLOBAL_SPEED) // COUNT_MANAGER) == 0:
             return
-        
+
         _global_speed = sum(GLOBAL_SPEED) / (len(GLOBAL_SPEED) // COUNT_MANAGER)
         broken_workers = sum(v for v in GLOBAL_BROKEN_WORKERS.values())
         logger.info(
@@ -158,7 +158,7 @@ class Manager:
             #     logger.info((worker.name, worker.state, worker.errors, worker.count_tasks))
 
             broken_workers = [w for w in self.workers if w.is_broken()]
-            
+
             sum_rows = sum([w.count_tasks for w in self.workers])
             sum_time = int(time.time()) - start_time
 
@@ -171,10 +171,10 @@ class Manager:
             GLOBAL_BROKEN_WORKERS[self.name] = len(broken_workers)
 
             self.log_worker_status(
-                sum_rows=sum_rows, 
-                sum_time=sum_time, 
-                real_its=real_its, 
-                broken_workers=broken_workers
+                sum_rows=sum_rows,
+                sum_time=sum_time,
+                real_its=real_its,
+                broken_workers=broken_workers,
             )
 
             self.log_global_speed()

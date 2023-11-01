@@ -16,6 +16,5 @@ app_config = AppConfig(
     POST_INTERVAL=os.getenv("POST_INTERVAL", 60),
     TIMEOUT_SECONDS=10,
     SESSION_TIMEOUT=ClientTimeout(total=10),
-    KAFKA_HOST=os.getenv("KAFKA_HOST")
+    KAFKA_HOST=os.getenv("KAFKA_HOST"),
 )
-

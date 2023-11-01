@@ -104,7 +104,9 @@ class Worker:
             await asyncio.sleep(0.1)
 
     async def handle_errors(self, player: Player, error_type, sleep_time, error):
-        logger.error(f"{self.name} - {error_type.__name__}: {str(error)} - {player.name=} - {self.errors=}")
+        logger.error(
+            f"{self.name} - {error_type.__name__}: {str(error)} - {player.name=} - {self.errors=}"
+        )
         await self.send_player(player)
         await asyncio.sleep(sleep_time)
 
@@ -133,7 +135,9 @@ class Worker:
                 # simulate random crashes
                 # if random.randint(1, 2) == 1:
                 #     raise ServerTimeoutError("THIS IS FOR TASTING ^.^")
-                player, hiscore = await self.scraper.lookup_hiscores(player, self.session)
+                player, hiscore = await self.scraper.lookup_hiscores(
+                    player, self.session
+                )
             except ERROR_TYPES as error:
                 error_type = type(error)
                 sleep_time = 1 if error_type != ClientHttpProxyError else 5

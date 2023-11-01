@@ -42,6 +42,7 @@ async def test_lookup_existing_player():
     assert data["Player_id"] == player.id, "player id must be equal"
     print(data)
 
+
 @pytest.mark.asyncio
 async def test_lookup_not_existing_player():
     api = HighscoreApi()
@@ -56,7 +57,7 @@ async def test_lookup_not_existing_player():
         label_id=0,
         label_jagex=0,
     )
-    
+
     # Use pytest.raises to check if the expected exception is raised
     with pytest.raises(PlayerDoesNotExistException) as exc_info:
         async with ClientSession() as session:
@@ -65,17 +66,19 @@ async def test_lookup_not_existing_player():
     # Now, you can assert other properties of the exception if needed
     assert "does not exist" in str(exc_info.value)
 
+
 @pytest.mark.asyncio
 async def test_parse_hiscore_name():
     # Test the _parse_hiscore_name function.
 
     # Create a HighscoreApi instance.
     api = HighscoreApi()
-    
+
     # Test various name replacements.
     assert api._parse_hiscore_name("Attack") == "attack"
     assert api._parse_hiscore_name("Clue Scrolls (all)") == "cs_all"
     assert api._parse_hiscore_name("Fishing") == "fishing"
+
 
 @pytest.mark.asyncio
 async def test_parse_hiscore_stat():
@@ -83,7 +86,7 @@ async def test_parse_hiscore_stat():
 
     # Create a HighscoreApi instance.
     api = HighscoreApi()
-    
+
     # Test valid stat values.
     assert api._parse_hiscore_stat(100) == 100
     assert api._parse_hiscore_stat(-1) == 0

@@ -24,7 +24,7 @@ def serializer(value):
 async def send_one():
     producer = AIOKafkaProducer(
         bootstrap_servers="localhost:9094",
-        value_serializer=lambda x: json.dumps(x).encode()
+        value_serializer=lambda x: json.dumps(x).encode(),
     )
     # Get cluster layout and initial topic/partition leadership information
     await producer.start()
@@ -45,7 +45,6 @@ async def send_one():
     finally:
         # Wait for all pending messages to be delivered or expire.
         await producer.stop()
-
 
 
 asyncio.run(send_one())
