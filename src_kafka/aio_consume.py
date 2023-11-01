@@ -1,7 +1,8 @@
-from aiokafka import AIOKafkaConsumer
 import asyncio
 import json
 import time
+
+from aiokafka import AIOKafkaConsumer
 
 
 async def consume(consumer: AIOKafkaConsumer):

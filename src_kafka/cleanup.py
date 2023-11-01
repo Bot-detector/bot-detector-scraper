@@ -1,4 +1,4 @@
-from kafka.admin import NewTopic, KafkaAdminClient
+from kafka.admin import KafkaAdminClient, NewTopic
 
 
 def main():

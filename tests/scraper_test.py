@@ -11,14 +11,16 @@ print(src_folder)
 
 sys.path.append(src_folder)
 
-import pytest
 import asyncio
+import time
+
+import pytest
 from aiohttp import ClientSession
-from modules.validation.player import Player, PlayerDoesNotExistException
+
 from modules.api.highscore_api import HighscoreApi
 from modules.api.runemetrics_api import RuneMetricsApi
 from modules.scraper import Scraper
-import time
+from modules.validation.player import Player, PlayerDoesNotExistException
 
 
 # Test lookup_hiscores with an existing player

@@ -1,10 +1,11 @@
 # setup_kafka.py
 import json
-from kafka.admin import NewTopic, KafkaAdminClient
-from kafka import KafkaProducer
 import os
-import zipfile
 import time
+import zipfile
+
+from kafka import KafkaProducer
+from kafka.admin import KafkaAdminClient, NewTopic
 
 
 def create_topics():

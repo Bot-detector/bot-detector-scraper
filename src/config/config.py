@@ -1,8 +1,10 @@
 import os
+
 import dotenv
 from aiohttp import ClientTimeout
-from config.app_config import AppConfig
+
 from config import logging
+from config.app_config import AppConfig
 
 dotenv.load_dotenv()
 

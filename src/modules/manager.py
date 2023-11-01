@@ -11,7 +11,6 @@ from aiokafka import AIOKafkaConsumer
 
 import config.config as config
 from config.config import app_config
-
 from modules.validation.player import Player
 from modules.worker import Worker, WorkerState
 

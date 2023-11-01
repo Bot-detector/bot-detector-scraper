@@ -1,6 +1,7 @@
-import json
-from AioKafkaEngine.AioKafkaEngine import AioKafkaEngine
 import asyncio
+import json
+
+from AioKafkaEngine.AioKafkaEngine import AioKafkaEngine
 
 
 async def main():

@@ -63,7 +63,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: base
-    command: python src/main_v2.py
+    command: python src/main.py
     restart: on-failure
     networks:
       - botdetector-network

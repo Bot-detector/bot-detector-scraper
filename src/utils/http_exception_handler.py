@@ -1,13 +1,15 @@
-import traceback
-from aiohttp.client_exceptions import (
-    ServerTimeoutError,
-    ServerDisconnectedError,
-    ClientConnectorError,
-    ContentTypeError,
-    ClientOSError,
-)
 import asyncio
 import logging
+import traceback
+
+from aiohttp.client_exceptions import (
+    ClientConnectorError,
+    ClientOSError,
+    ContentTypeError,
+    ServerDisconnectedError,
+    ServerTimeoutError,
+)
+
 from modules.validation.player import PlayerDoesNotExistException
 
 

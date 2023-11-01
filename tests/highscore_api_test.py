@@ -14,12 +14,12 @@ sys.path.append(src_folder)
 import pytest
 from aiohttp import ClientSession
 
-from modules.validation.player import Player
 from modules.api.highscore_api import (
     HighscoreApi,
     InvalidResponse,
     PlayerDoesNotExistException,
 )
+from modules.validation.player import Player
 
 
 @pytest.mark.asyncio

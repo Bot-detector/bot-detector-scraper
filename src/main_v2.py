@@ -1,16 +1,18 @@
-from config.config import app_config
-from pydantic import BaseModel
-from modules.validation.player import Player
 import asyncio
-from modules.scraper import Scraper
-import uuid
-from aiohttp import ClientSession
-import logging
-import requests
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 import json
+import logging
+import uuid
 from asyncio import Queue
 from time import time
+
+import requests
+from aiohttp import ClientSession
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from pydantic import BaseModel
+
+from config.config import app_config
+from modules.scraper import Scraper
+from modules.validation.player import Player
 
 logger = logging.getLogger(__name__)
 
