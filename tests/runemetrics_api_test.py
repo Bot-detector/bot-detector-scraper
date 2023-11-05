@@ -13,8 +13,9 @@ sys.path.append(src_folder)
 
 import pytest
 from aiohttp import ClientSession
+
+from modules.api.runemetrics_api import InvalidResponse, RuneMetricsApi
 from modules.validation.player import Player
-from modules.api.runemetrics_api import RuneMetricsApi, InvalidResponse
 
 
 @pytest.mark.asyncio
@@ -69,6 +70,8 @@ async def test_lookup_not_existing_player():
     # Optionally, you can perform other assertions on the Player object if needed
     assert data.name == "z12rpksw9f02q"
     assert data.label_jagex == 1
-    assert data.updated_at != player.updated_at, f"player must be updated, existing: {player.updated_at} received: {data.updated_at}"
+    assert (
+        data.updated_at != player.updated_at
+    ), f"player must be updated, existing: {player.updated_at} received: {data.updated_at}"
 
     await session.close()

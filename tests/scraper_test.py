@@ -11,14 +11,17 @@ print(src_folder)
 
 sys.path.append(src_folder)
 
-import pytest
 import asyncio
+import time
+
+import pytest
 from aiohttp import ClientSession
-from modules.validation.player import Player, PlayerDoesNotExistException
+
 from modules.api.highscore_api import HighscoreApi
 from modules.api.runemetrics_api import RuneMetricsApi
 from modules.scraper import Scraper
-import time
+from modules.validation.player import Player, PlayerDoesNotExistException
+
 
 # Test lookup_hiscores with an existing player
 @pytest.mark.asyncio
@@ -36,7 +39,7 @@ async def test_lookup_hiscores_existing_player():
         label_jagex=0,
     )
     session = ClientSession()
-    
+
     player_data, highscore_data = await scraper.lookup_hiscores(player, session)
 
     # Assert that the returned data is of the correct types
@@ -48,6 +51,7 @@ async def test_lookup_hiscores_existing_player():
     assert player_data.label_jagex == 0
     assert highscore_data["Player_id"] == 1
     assert player_data.confirmed_player == 1
+
 
 # Test lookup_hiscores with a non-existing player
 @pytest.mark.asyncio
@@ -65,7 +69,7 @@ async def test_lookup_hiscores_non_existing_player():
         label_jagex=0,
     )
     session = ClientSession()
-    
+
     player_data, highscore_data = await scraper.lookup_hiscores(player, session)
 
     # Assert that the returned data is of the correct types
@@ -79,13 +83,14 @@ async def test_lookup_hiscores_non_existing_player():
     # Optionally, you can perform other assertions on the Player and highscore data
     assert player_data.name == "z12rpksw9f02q"
 
+
 @pytest.mark.asyncio
 async def test_rate_limit():
     scraper = Scraper()
 
     # Save the current time before calling rate_limit
     start_time = time.time()
-    
+
     for i in range(scraper.history.maxlen):
         if i % 10 == 0:
             print(i)

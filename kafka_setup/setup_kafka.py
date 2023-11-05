@@ -1,10 +1,11 @@
 # setup_kafka.py
 import json
-from kafka.admin import NewTopic, KafkaAdminClient
-from kafka import KafkaProducer
 import os
-import zipfile
 import time
+import zipfile
+
+from kafka import KafkaProducer
+from kafka.admin import KafkaAdminClient, NewTopic
 
 
 def create_topics():
@@ -52,6 +53,7 @@ def send_json_to_kafka(file_path, producer, topic):
         data = json.load(file)
 
     for record in data:
+        print(record)
         # record = json.dumps(record).encode("utf-8")
         producer.send(topic, value=record)
     return

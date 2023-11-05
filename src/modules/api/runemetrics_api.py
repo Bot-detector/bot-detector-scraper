@@ -62,13 +62,13 @@ class RuneMetricsApi:
                 f"Redirection occured: {response.url} - {response.history[0].url}"
             )
             return None
-        
+
         basic_error = (
             f"status code {status}.\n"
             f"URL: {response.url}\n"
             f"Header: {response.headers}\n"
         )
-        
+
         match status:
             # OK
             case 200:

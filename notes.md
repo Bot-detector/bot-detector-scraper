@@ -22,3 +22,7 @@ call pip install -r requirements.txt --upgrade
 call pip freeze > requirements.txt
 powershell "(Get-Content requirements.txt) | ForEach-Object { $_ -replace '>=', '==' } | Set-Content requirements.txt"
 ```
+
+```
+kubectl port-forward -n kafka svc/bd-prd-kafka-service 9094:9094
+```

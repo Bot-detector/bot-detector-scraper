@@ -16,8 +16,10 @@ def batchify_list(input_list: list, batch_size: int) -> list[list]:
         input_list[i : i + batch_size] for i in range(0, len(input_list), batch_size)
     ]
 
+
 def run_manager(proxy_list: list):
     asyncio.run(Manager(proxy_list).run())
+
 
 def create_and_run_processes(proxy_batches: list[list]):
     processes: list[Process] = []
@@ -51,7 +53,7 @@ async def main():
 
     proxy_manager = ProxyManager(app_config.PROXY_DOWNLOAD_URL)
     proxies = await proxy_manager.get_proxy_list()
-    
+
     # proxies = proxies[:5] # debugging
     proxy_batches = batchify_list(proxies, BATCH_SIZE)
 
