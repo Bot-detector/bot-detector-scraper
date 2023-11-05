@@ -169,6 +169,7 @@ async def main():
 
     # get proxies
     proxy_list = get_proxies()
+    logger.info(f"gathered {len(proxy_list)} proxies")
 
     if not proxy_list:
         logger.error("No proxies available. Exiting.")
