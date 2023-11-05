@@ -196,7 +196,6 @@ async def main():
 
 
 if __name__ == "__main__":
-    app_config.KAFKA_HOST = "localhost:9094"
     try:
         loop = asyncio.get_running_loop()
         loop.run_until_complete(main())
