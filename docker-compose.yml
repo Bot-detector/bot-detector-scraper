@@ -31,6 +31,7 @@ services:
 
   kafka_setup:
     container_name: kafka_setup
+    image: bot_detector/kafka_setup
     build:
       context: ./kafka_setup
     environment:
@@ -58,12 +59,13 @@ services:
         condition: service_healthy
 
   scraper:
+    image: bot_detector/scraper
     container_name: scraper
     build:
       context: .
       dockerfile: Dockerfile
       target: base
-    command: python src/main.py
+    command: python src/main_v2.py
     restart: on-failure
     networks:
       - botdetector-network

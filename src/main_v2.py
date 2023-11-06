@@ -34,19 +34,30 @@ def get_proxies():
     headers = {
         "Authorization": f"Token {app_config.PROXY_API_KEY}",
     }
-    response = requests.get(URL, headers=headers)
-    results = None
-    if response.status_code == 200:
-        proxies = response.json()
-        results = proxies["results"]
-        results = [Proxy(**r) for r in results]
-        results = [
-            f"http://{r.username}:{r.password}@{r.proxy_address}:{r.ports.http}"
-            for r in results
-        ]
-    else:
-        logger.error(f"Failed to retrieve proxies. Status code: {response.status_code}")
-    return results
+    all_results = []  # To store results from all pages
+    next_url = URL  # Initialize with the first page URL
+
+    while next_url:
+        response = requests.get(next_url, headers=headers)
+        if response.status_code == 200:
+            proxies = response.json()
+            results = proxies.get("results", [])
+            results = [Proxy(**r) for r in results]
+            page_results = [
+                f"http://{r.username}:{r.password}@{r.proxy_address}:{r.ports.http}"
+                for r in results
+            ]
+            all_results.extend(page_results)
+            next = proxies.get("next")
+            next_url = f"https://proxy.webshare.io{next}" if next else None
+            logger.info(f"{next_url=}")
+        else:
+            logger.error(
+                f"Failed to retrieve proxies. Status code: {response.status_code}"
+            )
+            return None  # Or handle the error as per your application's requirements
+
+    return all_results
 
 
 async def kafka_player_consumer():
@@ -86,7 +97,7 @@ async def scrape_data(
 
     while True:
         if player_receive_queue.empty():
-            logger.info(f"{name=} - receive queue is empty")
+            # logger.info(f"{name=} - receive queue is empty")
             await asyncio.sleep(5)
             continue
 
