@@ -6,7 +6,7 @@ from asyncio import Queue
 from time import time
 
 import requests
-from aiohttp import ClientSession
+from aiohttp import ClientHttpProxyError, ClientResponseError, ClientSession
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from pydantic import BaseModel
 
@@ -113,6 +113,17 @@ async def scrape_data(
             player, hiscore = await scraper.lookup_hiscores(player, session)
             player: Player
             hiscore: dict
+
+        except (ClientResponseError, ClientHttpProxyError) as error:
+            session = ClientSession(timeout=app_config.SESSION_TIMEOUT)
+            error_type = type(error)
+            sleep_time = 35
+            logger.error(
+                f"{name} - {error_type.__name__}: {str(error)} - {error_count=} - {player.name=}"
+            )
+            await player_send_queue.put(item=player.dict())
+            await asyncio.sleep(sleep_time)
+            continue
         except Exception as error:
             error_type = type(error)
             sleep_time = max(error_count * 2, 5)
