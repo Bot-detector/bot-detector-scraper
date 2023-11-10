@@ -177,9 +177,9 @@ async def main():
     player_consumer = await kafka_player_consumer()
     producer = await kafka_producer()
 
-    player_receive_queue = Queue(maxsize=100)
+    player_receive_queue = Queue(maxsize=500)
     player_send_queue = Queue(maxsize=100)
-    scraper_send_queue = Queue(maxsize=100)
+    scraper_send_queue = Queue(maxsize=500)
 
     asyncio.create_task(receive_messages(player_consumer, player_receive_queue))
     asyncio.create_task(
