@@ -17,6 +17,6 @@ app_config = AppConfig(
     MAX_BYTES=int(os.getenv("MAX_BYTES", 1_000_000)),
     POST_INTERVAL=os.getenv("POST_INTERVAL", 60),
     TIMEOUT_SECONDS=10,
-    SESSION_TIMEOUT=ClientTimeout(total=10),
+    SESSION_TIMEOUT=os.getenv("SESSION_TIMEOUT", 60),
     KAFKA_HOST=os.getenv("KAFKA_HOST"),
 )

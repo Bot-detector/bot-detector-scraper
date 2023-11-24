@@ -6,7 +6,12 @@ from asyncio import Queue
 from time import time
 
 import requests
-from aiohttp import ClientHttpProxyError, ClientResponseError, ClientSession
+from aiohttp import (
+    ClientHttpProxyError,
+    ClientResponseError,
+    ClientSession,
+    ClientTimeout,
+)
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from pydantic import BaseModel
 
@@ -93,7 +98,7 @@ async def scrape_data(
     error_count = 0
     name = str(uuid.uuid4())[-8:]
     scraper = Scraper(proxy=proxy, worker_name=name)
-    session = ClientSession(timeout=app_config.SESSION_TIMEOUT)
+    session = ClientSession(timeout=ClientTimeout(total=app_config.SESSION_TIMEOUT))
 
     while True:
         if player_receive_queue.empty():

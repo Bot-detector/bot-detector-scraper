@@ -13,7 +13,7 @@ class AppConfig(BaseModel):
 
     POST_INTERVAL: int
     TIMEOUT_SECONDS: int
-    SESSION_TIMEOUT: Any
+    SESSION_TIMEOUT: int
 
     KAFKA_HOST: str
 
