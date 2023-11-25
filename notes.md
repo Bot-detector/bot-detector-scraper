@@ -25,5 +25,6 @@ powershell "(Get-Content requirements.txt) | ForEach-Object { $_ -replace '>=', 
 
 ```
 kubectl port-forward -n kafka svc/bd-prd-kafka-service 9094:9094
+kubectl port-forward -n kafka svc/bd-prd-kafdrop-service 9000:9000
 kubectl port-forward -n database svc/mysql 3306:3306
 ```

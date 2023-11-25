@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import traceback
 import uuid
 from asyncio import Queue
 from time import time
@@ -135,6 +136,8 @@ async def scrape_data(
             logger.error(
                 f"{name} - {error_type.__name__}: {str(error)} - {error_count=} - {player.name=}"
             )
+            tb_str = traceback.format_exc()
+            logger.error(f"{error}, \n{tb_str}")
             await player_send_queue.put(item=player.dict())
             await asyncio.sleep(sleep_time)
             continue
