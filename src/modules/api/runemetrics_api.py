@@ -67,6 +67,7 @@ class RuneMetricsApi:
             f"status code {status}.\n"
             f"URL: {response.url}\n"
             f"Header: {response.headers}\n"
+            f"Player: {player.name}\n"
         )
 
         match status:

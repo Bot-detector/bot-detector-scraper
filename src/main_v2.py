@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from config.config import app_config
 from modules.scraper import Scraper
 from modules.validation.player import Player
+from utils.http_exception_handler import InvalidResponse
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,12 @@ async def scrape_data(
             player, hiscore = await scraper.lookup_hiscores(player, session)
             player: Player
             hiscore: dict
-
+        except InvalidResponse as _:
+            error_type = type(error)
+            sleep_time = max(error_count * 2, 5)
+            await player_send_queue.put(item=player.dict())
+            await asyncio.sleep(sleep_time)
+            continue
         except (ClientResponseError, ClientHttpProxyError) as error:
             session = ClientSession(timeout=app_config.SESSION_TIMEOUT)
             error_type = type(error)
@@ -134,7 +140,13 @@ async def scrape_data(
             error_type = type(error)
             sleep_time = max(error_count * 2, 5)
             logger.error(
-                f"{name} - {error_type.__name__}: {str(error)} - {error_count=} - {player.name=}"
+                {
+                    "name": name,
+                    "error_type": error_type.__name__,
+                    "error": error,
+                    "error_count": error_count,
+                    "player_name": player.name,
+                }
             )
             tb_str = traceback.format_exc()
             logger.error(f"{error}, \n{tb_str}")
