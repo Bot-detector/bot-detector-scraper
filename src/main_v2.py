@@ -1,10 +1,10 @@
 import asyncio
 import json
 import logging
+import time
 import traceback
 import uuid
 from asyncio import Queue
-from time import time
 
 import requests
 from aiohttp import (
@@ -166,13 +166,27 @@ async def receive_messages(consumer: AIOKafkaConsumer, receive_queue: Queue):
         await receive_queue.put(value)
 
 
+def log_speed(counter: int, start_time: float, _queue: Queue) -> tuple[float, int]:
+    end_time = time.time()
+    delta_time = end_time - start_time
+    speed = counter / delta_time
+    logger.info(
+        f"qsize={_queue.qsize()}, processed {counter} in {delta_time:.2f} seconds, {speed:.2f} msg/sec"
+    )
+    return time.time(), 0
+
+
 async def send_messages(topic: str, producer: AIOKafkaProducer, send_queue: Queue):
-    last_interval = time()
+    start_time = time.time()
     messages_sent = 0
 
     while True:
         if send_queue.empty():
+            start_time, messages_sent = log_speed(
+                counter=messages_sent, start_time=start_time, _queue=send_queue
+            )
             await asyncio.sleep(1)
+            continue
         message = await send_queue.get()
         await producer.send(topic, value=message)
         send_queue.task_done()
@@ -181,15 +195,9 @@ async def send_messages(topic: str, producer: AIOKafkaProducer, send_queue: Queu
             messages_sent += 1
 
         if topic == "scraper" and messages_sent >= 100:
-            current_time = time()
-            elapsed_time = current_time - last_interval
-            speed = messages_sent / elapsed_time
-            logger.info(
-                f"processed {messages_sent} in {elapsed_time:.2f} seconds, {speed:.2f} msg/sec"
+            start_time, messages_sent = log_speed(
+                counter=messages_sent, start_time=start_time, _queue=send_queue
             )
-
-            last_interval = time()
-            messages_sent = 0
 
 
 async def main():
