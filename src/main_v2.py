@@ -160,10 +160,16 @@ async def scrape_data(
     return
 
 
-async def receive_messages(consumer: AIOKafkaConsumer, receive_queue: Queue):
-    async for message in consumer:
-        value = message.value
-        await receive_queue.put(value)
+async def receive_messages(
+    consumer: AIOKafkaConsumer, receive_queue: Queue, batch_size: int = 200
+):
+    while True:
+        batch = await consumer.getmany(timeout_ms=1000, max_records=batch_size)
+        logger.info(f"{len(batch)=}")
+        for tp, messages in batch.items():
+            for message in messages:
+                value = message.value
+                await receive_queue.put(value)
 
 
 def log_speed(counter: int, start_time: float, _queue: Queue) -> tuple[float, int]:
