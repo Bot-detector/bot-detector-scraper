@@ -182,9 +182,10 @@ async def send_messages(topic: str, producer: AIOKafkaProducer, send_queue: Queu
 
     while True:
         if send_queue.empty():
-            start_time, messages_sent = log_speed(
-                counter=messages_sent, start_time=start_time, _queue=send_queue
-            )
+            if messages_sent > 0:
+                start_time, messages_sent = log_speed(
+                    counter=messages_sent, start_time=start_time, _queue=send_queue
+                )
             await asyncio.sleep(1)
             continue
         message = await send_queue.get()
