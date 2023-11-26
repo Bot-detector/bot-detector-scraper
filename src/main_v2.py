@@ -165,11 +165,10 @@ async def receive_messages(
 ):
     while True:
         batch = await consumer.getmany(timeout_ms=1000, max_records=batch_size)
-        logger.info(f"{len(batch)=}")
         for tp, messages in batch.items():
-            for message in messages:
-                value = message.value
-                await receive_queue.put(value)
+            logger.info(f"Partition {tp}: {len(messages)} messages")
+            await asyncio.gather(*[receive_queue.put(m.value) for m in messages])
+            await consumer.commit()
 
 
 def log_speed(counter: int, start_time: float, _queue: Queue) -> tuple[float, int]:
