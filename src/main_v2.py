@@ -1,6 +1,8 @@
 import asyncio
 import json
 import logging
+import signal
+import sys
 import time
 import traceback
 import uuid
@@ -22,6 +24,18 @@ from modules.validation.player import Player
 from utils.http_exception_handler import InvalidResponse
 
 logger = logging.getLogger(__name__)
+
+# Create an asyncio.Event for the shutdown signal
+shutdown_event = asyncio.Event()
+
+
+def signal_handler(signum, frame):
+    # Set the event when a termination signal is received
+    shutdown_event.set()
+
+
+# Register the signal handler
+signal.signal(signal.SIGTERM, signal_handler)
 
 
 class Ports(BaseModel):
@@ -244,8 +258,24 @@ async def main():
             )
         )
         tasks.append(task)
-    # await task for completion (never)
-    await asyncio.gather(*tasks, return_exceptions=True)
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Check for exceptions
+    exceptions = [result for result in results if isinstance(result, Exception)]
+
+    if exceptions:
+        # Handle the exceptions
+        for exception in exceptions:
+            print(f"Task failed with exception: {exception}")
+
+        # Go into the error sequence if an exception occurs
+        for message in player_receive_queue:
+            await producer.send("player", value=message)
+        for message in player_send_queue:
+            await producer.send("player", value=message)
+        for message in scraper_send_queue:
+            await producer.send("scraper", value=message)
 
     # if for some reason all tasks are completed shutdown
     await player_consumer.stop()
@@ -258,3 +288,9 @@ if __name__ == "__main__":
         loop.run_until_complete(main())
     except RuntimeError:
         asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("KeyboardInterrupt")
+        sys.exit(0)
+    except SystemExit:
+        logger.info("SystemExit")
+        sys.exit(0)
