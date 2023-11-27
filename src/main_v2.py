@@ -117,6 +117,8 @@ async def scrape_data(
     session = ClientSession(timeout=ClientTimeout(total=app_config.SESSION_TIMEOUT))
 
     while True:
+        if shutdown_event.is_set():
+            break
         if player_receive_queue.empty():
             # logger.info(f"{name=} - receive queue is empty")
             await asyncio.sleep(5)
@@ -178,6 +180,8 @@ async def receive_messages(
     consumer: AIOKafkaConsumer, receive_queue: Queue, batch_size: int = 200
 ):
     while True:
+        if shutdown_event.is_set():
+            break
         batch = await consumer.getmany(timeout_ms=1000, max_records=batch_size)
         for tp, messages in batch.items():
             logger.info(f"Partition {tp}: {len(messages)} messages")
@@ -201,6 +205,8 @@ async def send_messages(topic: str, producer: AIOKafkaProducer, send_queue: Queu
     messages_sent = 0
 
     while True:
+        if shutdown_event.is_set():
+            break
         if send_queue.empty():
             if messages_sent > 0:
                 start_time, messages_sent = log_speed(
@@ -219,6 +225,25 @@ async def send_messages(topic: str, producer: AIOKafkaProducer, send_queue: Queu
             start_time, messages_sent = log_speed(
                 counter=messages_sent, start_time=start_time, _queue=send_queue
             )
+
+
+async def shutdown_sequence(
+    player_receive_queue, player_send_queue, scraper_send_queue, producer
+):
+    while not player_receive_queue.empty():
+        message = await player_receive_queue.get()
+        await producer.send("player", value=message)
+
+    while not player_send_queue.empty():
+        message = await player_send_queue.get()
+        await producer.send("player", value=message)
+
+    while not scraper_send_queue.empty():
+        message = await scraper_send_queue.get()
+        await producer.send("scraper", value=message)
+
+    # if for some reason all tasks are completed shutdown
+    await producer.stop()
 
 
 async def main():
@@ -259,32 +284,31 @@ async def main():
         )
         tasks.append(task)
 
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    try:
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # Check for exceptions
-    exceptions = [result for result in results if isinstance(result, Exception)]
+        # Check for exceptions
+        exceptions = [result for result in results if isinstance(result, Exception)]
 
-    if exceptions:
-        # Handle the exceptions
-        for exception in exceptions:
-            print(f"Task failed with exception: {exception}")
-
-        # Go into the error sequence if an exception occurs
-        for message in player_receive_queue:
-            await producer.send("player", value=message)
-        for message in player_send_queue:
-            await producer.send("player", value=message)
-        for message in scraper_send_queue:
-            await producer.send("scraper", value=message)
+        if exceptions:
+            # Handle the exceptions
+            for exception in exceptions:
+                print(f"Task failed with exception: {exception}")
+    finally:
+        await shutdown_sequence(
+            player_receive_queue=player_receive_queue,
+            player_send_queue=player_send_queue,
+            scraper_send_queue=scraper_send_queue,
+            producer=producer,
+        )
 
     # if for some reason all tasks are completed shutdown
-    await player_consumer.stop()
     await producer.stop()
 
 
 if __name__ == "__main__":
     try:
-        loop = asyncio.get_running_loop()
+        loop = asyncio.get_event_loop()
         loop.run_until_complete(main())
     except RuntimeError:
         asyncio.run(main())
