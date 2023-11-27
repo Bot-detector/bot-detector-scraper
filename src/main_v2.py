@@ -91,6 +91,16 @@ async def kafka_producer():
     return producer
 
 
+def log_speed(counter: int, start_time: float, _queue: Queue) -> tuple[float, int]:
+    end_time = time.time()
+    delta_time = end_time - start_time
+    speed = counter / delta_time
+    logger.info(
+        f"qsize={_queue.qsize()}, processed {counter} in {delta_time:.2f} seconds, {speed:.2f} msg/sec"
+    )
+    return time.time(), 0
+
+
 async def scrape_data(
     player_receive_queue: Queue,
     player_send_queue: Queue,
@@ -127,7 +137,9 @@ async def scrape_data(
             await asyncio.sleep(sleep_time)
             continue
         except (ClientResponseError, ClientHttpProxyError) as error:
-            session = ClientSession(timeout=app_config.SESSION_TIMEOUT)
+            session = ClientSession(
+                timeout=ClientTimeout(total=app_config.SESSION_TIMEOUT)
+            )
             error_type = type(error)
             sleep_time = 35
             logger.error(
@@ -170,16 +182,6 @@ async def receive_messages(
             await asyncio.gather(*[receive_queue.put(m.value) for m in messages])
             logger.info("done")
             await consumer.commit()
-
-
-def log_speed(counter: int, start_time: float, _queue: Queue) -> tuple[float, int]:
-    end_time = time.time()
-    delta_time = end_time - start_time
-    speed = counter / delta_time
-    logger.info(
-        f"qsize={_queue.qsize()}, processed {counter} in {delta_time:.2f} seconds, {speed:.2f} msg/sec"
-    )
-    return time.time(), 0
 
 
 async def send_messages(topic: str, producer: AIOKafkaProducer, send_queue: Queue):
