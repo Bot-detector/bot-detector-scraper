@@ -168,6 +168,7 @@ async def receive_messages(
         for tp, messages in batch.items():
             logger.info(f"Partition {tp}: {len(messages)} messages")
             await asyncio.gather(*[receive_queue.put(m.value) for m in messages])
+            logger.info("done")
             await consumer.commit()
 
 
