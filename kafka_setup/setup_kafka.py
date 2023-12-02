@@ -25,11 +25,16 @@ def create_topics():
         [
             NewTopic(
                 name="player",
-                num_partitions=3,
+                num_partitions=4,
                 replication_factor=1,
             ),
             NewTopic(
                 name="scraper",
+                num_partitions=4,
+                replication_factor=1,
+            ),
+            NewTopic(
+                name="scraper-runemetrics",
                 num_partitions=4,
                 replication_factor=1,
             ),
