@@ -62,7 +62,7 @@ class Webshare:
 
 
 async def main():
-    webshare = Webshare(api_key="gks5qtavhlbtlyqnmy8upufsu31fn7qi4z9ldj7a")
+    webshare = Webshare(api_key="")
     proxies = await webshare.get_proxies()
     [print(p) for p in proxies]
 
