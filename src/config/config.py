@@ -1,22 +1,18 @@
 import os
 
 import dotenv
-from aiohttp import ClientTimeout
+from pydantic import BaseSettings
 
 from config import logging
-from config.app_config import AppConfig
 
-dotenv.load_dotenv()
 
-app_config = AppConfig(
-    PROXY_DOWNLOAD_URL=os.getenv("PROXY_DOWNLOAD_URL"),
-    PROXY_API_KEY=os.getenv("PROXY_API_KEY"),
-    ENDPOINT=os.getenv("ENDPOINT"),
-    QUERY_SIZE=int(os.getenv("QUERY_SIZE")),
-    TOKEN=os.getenv("TOKEN"),
-    MAX_BYTES=int(os.getenv("MAX_BYTES", 1_000_000)),
-    POST_INTERVAL=os.getenv("POST_INTERVAL", 60),
-    TIMEOUT_SECONDS=10,
-    SESSION_TIMEOUT=os.getenv("SESSION_TIMEOUT", 60),
-    KAFKA_HOST=os.getenv("KAFKA_HOST"),
-)
+class AppConfig(BaseSettings):
+    PROXY_API_KEY: str
+    SESSION_TIMEOUT: int = 60
+    KAFKA_HOST: str = "kafka:9092"
+
+    class Config:
+        env_prefix = ""
+
+
+app_config = AppConfig()

@@ -17,54 +17,12 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from pydantic import BaseModel
 
 from config.config import app_config
+from modules.api.webshare_api import Webshare
 from modules.scraper import Scraper
 from modules.validation.player import Player
 from utils.http_exception_handler import InvalidResponse
 
 logger = logging.getLogger(__name__)
-
-
-class Ports(BaseModel):
-    http: int
-    socks5: int
-
-
-class Proxy(BaseModel):
-    username: str
-    password: str
-    proxy_address: str
-    ports: Ports
-
-
-def get_proxies():
-    URL = "https://proxy.webshare.io/api/proxy/list/"
-    headers = {
-        "Authorization": f"Token {app_config.PROXY_API_KEY}",
-    }
-    all_results = []  # To store results from all pages
-    next_url = URL  # Initialize with the first page URL
-
-    while next_url:
-        response = requests.get(next_url, headers=headers)
-        if response.status_code == 200:
-            proxies = response.json()
-            results = proxies.get("results", [])
-            results = [Proxy(**r) for r in results]
-            page_results = [
-                f"http://{r.username}:{r.password}@{r.proxy_address}:{r.ports.http}"
-                for r in results
-            ]
-            all_results.extend(page_results)
-            next = proxies.get("next")
-            next_url = f"https://proxy.webshare.io{next}" if next else None
-            logger.info(f"{next_url=}")
-        else:
-            logger.error(
-                f"Failed to retrieve proxies. Status code: {response.status_code}"
-            )
-            return None  # Or handle the error as per your application's requirements
-
-    return all_results
 
 
 async def kafka_player_consumer():
@@ -227,7 +185,8 @@ async def main():
     )
 
     # get proxies
-    proxy_list = get_proxies()
+    webshare = Webshare(api_key=app_config.PROXY_API_KEY)
+    proxy_list = await webshare.get_proxies()
     logger.info(f"gathered {len(proxy_list)} proxies")
 
     if not proxy_list:
