@@ -71,6 +71,8 @@ services:
       - botdetector-network
     env_file:
       - .env
+    volumes:
+      -  ./src:/project/src
     depends_on:
       kafka:
         condition: service_healthy
