@@ -151,58 +151,61 @@ async def scrape_data(
 
             player = Player(**player)
             # logger.info(f"Scraping data for player: {player.name}")
-            try:
-                player, hiscore = await scraper.lookup_hiscores(player, session)
-                player: Player
-                hiscore: dict
-                # logger.info(f"Scraped data for player: {player.name}")
-                scrape_counter += 1
-                if scrape_counter == 100:
-                    end_time = time.time()
-                    logger.info(
-                        f"Scraped 100 players in {end_time - start_time} seconds"
+            async with ClientSession(
+                timeout=ClientTimeout(total=app_config.SESSION_TIMEOUT)
+            ) as session:
+                try:
+                    player, hiscore = await scraper.lookup_hiscores(player, session)
+                    player: Player
+                    hiscore: dict
+                    # logger.info(f"Scraped data for player: {player.name}")
+                    scrape_counter += 1
+                    if scrape_counter == 100:
+                        end_time = time.time()
+                        logger.info(
+                            f"Scraped 100 players in {end_time - start_time} seconds"
+                        )
+                        start_time = time.time()
+                        scrape_counter = 0
+                except InvalidResponse as _:
+                    error_type = type(error)
+                    sleep_time = max(error_count * 2, 5)
+                    await player_send_queue.put(item=player.dict())
+                    await asyncio.sleep(sleep_time)
+                    continue
+                except (
+                    ClientResponseError,
+                    ClientHttpProxyError,
+                    ClientProxyConnectionError,
+                ) as error:
+                    async with ClientSession(
+                        timeout=ClientTimeout(total=app_config.SESSION_TIMEOUT)
+                    ) as session:
+                        error_type = type(error)
+                        sleep_time = 35
+                        logger.error(
+                            f"{name} - {error_type.__name__}: {str(error)} - {error_count=} - {player.name=}"
+                        )
+                        await player_send_queue.put(item=player.dict())
+                        await asyncio.sleep(sleep_time)
+                    continue
+                except Exception as error:
+                    error_type = type(error)
+                    sleep_time = max(error_count * 2, 5)
+                    logger.error(
+                        {
+                            "name": name,
+                            "error_type": error_type.__name__,
+                            "error": error,
+                            "error_count": error_count,
+                            "player_name": player.name,
+                        }
                     )
-                    start_time = time.time()
-                    scrape_counter = 0
-            except InvalidResponse as _:
-                error_type = type(error)
-                sleep_time = max(error_count * 2, 5)
-                await player_send_queue.put(item=player.dict())
-                await asyncio.sleep(sleep_time)
-                continue
-            except (
-                ClientResponseError,
-                ClientHttpProxyError,
-                ClientProxyConnectionError,
-            ) as error:
-                session = ClientSession(
-                    timeout=ClientTimeout(total=app_config.SESSION_TIMEOUT)
-                )
-                error_type = type(error)
-                sleep_time = 35
-                logger.error(
-                    f"{name} - {error_type.__name__}: {str(error)} - {error_count=} - {player.name=}"
-                )
-                await player_send_queue.put(item=player.dict())
-                await asyncio.sleep(sleep_time)
-                continue
-            except Exception as error:
-                error_type = type(error)
-                sleep_time = max(error_count * 2, 5)
-                logger.error(
-                    {
-                        "name": name,
-                        "error_type": error_type.__name__,
-                        "error": error,
-                        "error_count": error_count,
-                        "player_name": player.name,
-                    }
-                )
-                tb_str = traceback.format_exc()
-                logger.error(f"{error}, \n{tb_str}")
-                await player_send_queue.put(item=player.dict())
-                await asyncio.sleep(sleep_time)
-                continue
+                    tb_str = traceback.format_exc()
+                    logger.error(f"{error}, \n{tb_str}")
+                    await player_send_queue.put(item=player.dict())
+                    await asyncio.sleep(sleep_time)
+                    continue
 
         data = {"player": player.dict(), "hiscores": hiscore}
         await scraper_send_queue.put(item=data)
@@ -262,21 +265,26 @@ async def send_messages(
 async def shutdown_sequence(
     player_receive_queue, player_send_queue, scraper_send_queue, producer
 ):
+    logger.info("Starting shutdown sequence...")
+
     while not player_receive_queue.empty():
         message = await player_receive_queue.get()
         await producer.send("player", value=message)
+        # logger.info("Sent message from player_receive_queue to producer")
 
     while not player_send_queue.empty():
         message = await player_send_queue.get()
         await producer.send("player", value=message)
+        # logger.info("Sent message from player_send_queue to producer")
 
     while not scraper_send_queue.empty():
         message = await scraper_send_queue.get()
         await producer.send("scraper", value=message)
+        # logger.info("Sent message from scraper_send_queue to producer")
 
     # if for some reason all tasks are completed shutdown
     await producer.stop()
-    logger.info("Shutdown complete")
+    logger.info("Producer stopped")
 
 
 async def main():
