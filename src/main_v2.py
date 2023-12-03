@@ -151,61 +151,57 @@ async def scrape_data(
 
             player = Player(**player)
             # logger.info(f"Scraping data for player: {player.name}")
-            async with ClientSession(
-                timeout=ClientTimeout(total=app_config.SESSION_TIMEOUT)
-            ) as session:
-                try:
-                    player, hiscore = await scraper.lookup_hiscores(player, session)
-                    player: Player
-                    hiscore: dict
-                    # logger.info(f"Scraped data for player: {player.name}")
-                    scrape_counter += 1
-                    if scrape_counter == 100:
-                        end_time = time.time()
-                        logger.info(
-                            f"Scraped 100 players in {end_time - start_time} seconds"
-                        )
-                        start_time = time.time()
-                        scrape_counter = 0
-                except InvalidResponse as _:
-                    error_type = type(error)
-                    sleep_time = max(error_count * 2, 5)
-                    await player_send_queue.put(item=player.dict())
-                    await asyncio.sleep(sleep_time)
-                    continue
-                except (
-                    ClientResponseError,
-                    ClientHttpProxyError,
-                    ClientProxyConnectionError,
-                ) as error:
-                    async with ClientSession(
-                        timeout=ClientTimeout(total=app_config.SESSION_TIMEOUT)
-                    ) as session:
-                        error_type = type(error)
-                        sleep_time = 35
-                        logger.error(
-                            f"{name} - {error_type.__name__}: {str(error)} - {error_count=} - {player.name=}"
-                        )
-                        await player_send_queue.put(item=player.dict())
-                        await asyncio.sleep(sleep_time)
-                    continue
-                except Exception as error:
-                    error_type = type(error)
-                    sleep_time = max(error_count * 2, 5)
-                    logger.error(
-                        {
-                            "name": name,
-                            "error_type": error_type.__name__,
-                            "error": error,
-                            "error_count": error_count,
-                            "player_name": player.name,
-                        }
+            try:
+                player, hiscore = await scraper.lookup_hiscores(player, session)
+                player: Player
+                hiscore: dict
+                # logger.info(f"Scraped data for player: {player.name}")
+                scrape_counter += 1
+                logger.debug(f"scrape_counter: {scrape_counter}")  # Add this line
+                if scrape_counter == 100:
+                    logger.debug("scrape_counter reached 100")  # Add this line
+                    end_time = time.time()
+                    logger.info(
+                        f"Scraped 100 players in {end_time - start_time} seconds"
                     )
-                    tb_str = traceback.format_exc()
-                    logger.error(f"{error}, \n{tb_str}")
-                    await player_send_queue.put(item=player.dict())
-                    await asyncio.sleep(sleep_time)
-                    continue
+                    start_time = time.time()
+                    scrape_counter = 0
+            except InvalidResponse as _:
+                error_type = type(error)
+                sleep_time = max(error_count * 2, 5)
+                await player_send_queue.put(item=player.dict())
+                await asyncio.sleep(sleep_time)
+                continue
+            except (
+                ClientResponseError,
+                ClientHttpProxyError,
+                ClientProxyConnectionError,
+            ) as error:
+                error_type = type(error)
+                sleep_time = 35
+                logger.error(
+                    f"{name} - {error_type.__name__}: {str(error)} - {error_count=} - {player.name=}"
+                )
+                await player_send_queue.put(item=player.dict())
+                await asyncio.sleep(sleep_time)
+                continue
+            except Exception as error:
+                error_type = type(error)
+                sleep_time = max(error_count * 2, 5)
+                logger.error(
+                    {
+                        "name": name,
+                        "error_type": error_type.__name__,
+                        "error": error,
+                        "error_count": error_count,
+                        "player_name": player.name,
+                    }
+                )
+                tb_str = traceback.format_exc()
+                logger.error(f"{error}, \n{tb_str}")
+                await player_send_queue.put(item=player.dict())
+                await asyncio.sleep(sleep_time)
+                continue
 
         data = {"player": player.dict(), "hiscores": hiscore}
         await scraper_send_queue.put(item=data)
@@ -311,26 +307,6 @@ async def main():
         player_send_queue = Queue(maxsize=100)
         scraper_send_queue = Queue(maxsize=500)
 
-        asyncio.create_task(
-            receive_messages(player_consumer, player_receive_queue, shutdown_event)
-        )
-        asyncio.create_task(
-            send_messages(
-                topic="player",
-                producer=producer,
-                send_queue=player_send_queue,
-                shutdown_event=shutdown_event,
-            )
-        )
-        asyncio.create_task(
-            send_messages(
-                topic="scraper",
-                producer=producer,
-                send_queue=player_send_queue,
-                shutdown_event=shutdown_event,
-            )
-        )
-
         # get proxies
         proxy_list = get_proxies()
         logger.info(f"gathered {len(proxy_list)} proxies")
@@ -339,22 +315,40 @@ async def main():
             logger.error("No proxies available. Exiting.")
             return
 
-        # for each proxy create a task
-        tasks = []
-        for proxy in proxy_list:
-            task = asyncio.create_task(
-                scrape_data(
-                    player_receive_queue=player_receive_queue,
-                    player_send_queue=player_send_queue,
-                    scraper_send_queue=scraper_send_queue,
-                    proxy=proxy,
-                    shutdown_event=shutdown_event,
-                )
+        coroutines = [
+            scrape_data(
+                player_receive_queue=player_receive_queue,
+                player_send_queue=player_send_queue,
+                scraper_send_queue=scraper_send_queue,
+                proxy=proxy,
+                shutdown_event=shutdown_event,
             )
-            tasks.append(task)
+            for proxy in proxy_list
+        ]
+
+        # Add the receive_messages and send_messages coroutines
+        coroutines.append(
+            receive_messages(player_consumer, player_receive_queue, shutdown_event)
+        )
+        coroutines.append(
+            send_messages(
+                topic="player",
+                producer=producer,
+                send_queue=player_send_queue,
+                shutdown_event=shutdown_event,
+            )
+        )
+        coroutines.append(
+            send_messages(
+                topic="scraper",
+                producer=producer,
+                send_queue=player_send_queue,
+                shutdown_event=shutdown_event,
+            )
+        )
 
         try:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            results = await asyncio.gather(*coroutines, return_exceptions=True)
 
             # Check for exceptions
             exceptions = [result for result in results if isinstance(result, Exception)]
