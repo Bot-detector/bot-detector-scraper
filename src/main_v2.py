@@ -7,15 +7,19 @@ import time
 import traceback
 import uuid
 from asyncio import Queue
+from contextlib import asynccontextmanager
 
 import requests
 from aiohttp import (
     ClientHttpProxyError,
     ClientResponseError,
+    ClientProxyConnectionError,
     ClientSession,
     ClientTimeout,
 )
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+import asyncio
+from aiokafka.errors import KafkaConnectionError
 from pydantic import BaseModel
 
 from config.config import app_config
@@ -27,15 +31,6 @@ logger = logging.getLogger(__name__)
 
 # Create an asyncio.Event for the shutdown signal
 shutdown_event = asyncio.Event()
-
-
-def signal_handler(signum, frame):
-    # Set the event when a termination signal is received
-    shutdown_event.set()
-
-
-# Register the signal handler
-signal.signal(signal.SIGTERM, signal_handler)
 
 
 class Ports(BaseModel):
@@ -81,6 +76,7 @@ def get_proxies():
     return all_results
 
 
+@asynccontextmanager
 async def kafka_player_consumer():
     TOPIC = "player"
     GROUP = "scraper"
@@ -92,17 +88,25 @@ async def kafka_player_consumer():
         value_deserializer=lambda x: json.loads(x.decode("utf-8")),
         auto_offset_reset="earliest",
     )
-    await consumer.start()
-    return consumer
+
+    try:
+        await consumer.start()
+        yield consumer
+    finally:
+        await consumer.stop()
 
 
+@asynccontextmanager
 async def kafka_producer():
     producer = AIOKafkaProducer(
         bootstrap_servers=[app_config.KAFKA_HOST],
         value_serializer=lambda v: json.dumps(v).encode(),
     )
-    await producer.start()
-    return producer
+    try:
+        await producer.start()
+        yield producer
+    finally:
+        await producer.stop()
 
 
 def log_speed(counter: int, start_time: float, _queue: Queue) -> tuple[float, int]:
@@ -120,67 +124,85 @@ async def scrape_data(
     player_send_queue: Queue,
     scraper_send_queue: Queue,
     proxy: str,
+    shutdown_event: asyncio.Event,
 ):
     error_count = 0
     name = str(uuid.uuid4())[-8:]
+    scrape_counter = 0
+    start_time = time.time()
     scraper = Scraper(proxy=proxy, worker_name=name)
-    session = ClientSession(timeout=ClientTimeout(total=app_config.SESSION_TIMEOUT))
+    async with ClientSession(
+        timeout=ClientTimeout(total=app_config.SESSION_TIMEOUT)
+    ) as session:
+        while True:
+            if shutdown_event.is_set():
+                break
+            if player_receive_queue.empty():
+                # logger.info(f"{name=} - receive queue is empty")
+                await asyncio.sleep(5)
+                continue
 
-    while True:
-        if shutdown_event.is_set():
-            break
-        if player_receive_queue.empty():
-            # logger.info(f"{name=} - receive queue is empty")
-            await asyncio.sleep(5)
-            continue
+            if error_count > 5:
+                logger.warning(f"high error count: {error_count}, killing task")
+                break
 
-        if error_count > 5:
-            logger.warning(f"high error count: {error_count}, killing task")
-            break
+            player = await player_receive_queue.get()
+            player_receive_queue.task_done()
 
-        player = await player_receive_queue.get()
-        player_receive_queue.task_done()
-
-        player = Player(**player)
-        try:
-            player, hiscore = await scraper.lookup_hiscores(player, session)
-            player: Player
-            hiscore: dict
-        except InvalidResponse as _:
-            error_type = type(error)
-            sleep_time = max(error_count * 2, 5)
-            await player_send_queue.put(item=player.dict())
-            await asyncio.sleep(sleep_time)
-            continue
-        except (ClientResponseError, ClientHttpProxyError) as error:
-            session = ClientSession(
-                timeout=ClientTimeout(total=app_config.SESSION_TIMEOUT)
-            )
-            error_type = type(error)
-            sleep_time = 35
-            logger.error(
-                f"{name} - {error_type.__name__}: {str(error)} - {error_count=} - {player.name=}"
-            )
-            await player_send_queue.put(item=player.dict())
-            await asyncio.sleep(sleep_time)
-            continue
-        except Exception as error:
-            error_type = type(error)
-            sleep_time = max(error_count * 2, 5)
-            logger.error(
-                {
-                    "name": name,
-                    "error_type": error_type.__name__,
-                    "error": error,
-                    "error_count": error_count,
-                    "player_name": player.name,
-                }
-            )
-            tb_str = traceback.format_exc()
-            logger.error(f"{error}, \n{tb_str}")
-            await player_send_queue.put(item=player.dict())
-            await asyncio.sleep(sleep_time)
-            continue
+            player = Player(**player)
+            # logger.info(f"Scraping data for player: {player.name}")
+            try:
+                player, hiscore = await scraper.lookup_hiscores(player, session)
+                player: Player
+                hiscore: dict
+                # logger.info(f"Scraped data for player: {player.name}")
+                scrape_counter += 1
+                if scrape_counter == 100:
+                    end_time = time.time()
+                    logger.info(
+                        f"Scraped 100 players in {end_time - start_time} seconds"
+                    )
+                    start_time = time.time()
+                    scrape_counter = 0
+            except InvalidResponse as _:
+                error_type = type(error)
+                sleep_time = max(error_count * 2, 5)
+                await player_send_queue.put(item=player.dict())
+                await asyncio.sleep(sleep_time)
+                continue
+            except (
+                ClientResponseError,
+                ClientHttpProxyError,
+                ClientProxyConnectionError,
+            ) as error:
+                session = ClientSession(
+                    timeout=ClientTimeout(total=app_config.SESSION_TIMEOUT)
+                )
+                error_type = type(error)
+                sleep_time = 35
+                logger.error(
+                    f"{name} - {error_type.__name__}: {str(error)} - {error_count=} - {player.name=}"
+                )
+                await player_send_queue.put(item=player.dict())
+                await asyncio.sleep(sleep_time)
+                continue
+            except Exception as error:
+                error_type = type(error)
+                sleep_time = max(error_count * 2, 5)
+                logger.error(
+                    {
+                        "name": name,
+                        "error_type": error_type.__name__,
+                        "error": error,
+                        "error_count": error_count,
+                        "player_name": player.name,
+                    }
+                )
+                tb_str = traceback.format_exc()
+                logger.error(f"{error}, \n{tb_str}")
+                await player_send_queue.put(item=player.dict())
+                await asyncio.sleep(sleep_time)
+                continue
 
         data = {"player": player.dict(), "hiscores": hiscore}
         await scraper_send_queue.put(item=data)
@@ -189,7 +211,10 @@ async def scrape_data(
 
 
 async def receive_messages(
-    consumer: AIOKafkaConsumer, receive_queue: Queue, batch_size: int = 200
+    consumer: AIOKafkaConsumer,
+    receive_queue: Queue,
+    shutdown_event: asyncio.Event,
+    batch_size: int = 200,
 ):
     while True:
         if shutdown_event.is_set():
@@ -202,7 +227,12 @@ async def receive_messages(
             await consumer.commit()
 
 
-async def send_messages(topic: str, producer: AIOKafkaProducer, send_queue: Queue):
+async def send_messages(
+    topic: str,
+    producer: AIOKafkaProducer,
+    send_queue: Queue,
+    shutdown_event: asyncio.Event,
+):
     start_time = time.time()
     messages_sent = 0
 
@@ -246,63 +276,92 @@ async def shutdown_sequence(
 
     # if for some reason all tasks are completed shutdown
     await producer.stop()
+    logger.info("Shutdown complete")
 
 
 async def main():
-    # get kafka engine
-    player_consumer = await kafka_player_consumer()
-    producer = await kafka_producer()
-
     player_receive_queue = Queue(maxsize=500)
     player_send_queue = Queue(maxsize=100)
     scraper_send_queue = Queue(maxsize=500)
 
-    asyncio.create_task(receive_messages(player_consumer, player_receive_queue))
-    asyncio.create_task(
-        send_messages(topic="player", producer=producer, send_queue=player_send_queue)
-    )
-    asyncio.create_task(
-        send_messages(topic="scraper", producer=producer, send_queue=scraper_send_queue)
-    )
+    def signal_handler(signum, frame):
+        logger.info("Initiating shutdown sequence...")
+        loop = asyncio.get_event_loop()
+        loop.create_task(
+            shutdown_sequence(
+                player_receive_queue, player_send_queue, scraper_send_queue, producer
+            )
+        )
+        shutdown_event.set()
 
-    # get proxies
-    proxy_list = get_proxies()
-    logger.info(f"gathered {len(proxy_list)} proxies")
+    # Register the signal handler
+    signal.signal(signal.SIGTERM, signal_handler)
 
-    if not proxy_list:
-        logger.error("No proxies available. Exiting.")
-        return
+    # get kafka engine
+    async with kafka_player_consumer() as player_consumer, kafka_producer() as producer:
+        player_receive_queue = Queue(maxsize=500)
+        player_send_queue = Queue(maxsize=100)
+        scraper_send_queue = Queue(maxsize=500)
 
-    # for each proxy create a task
-    tasks = []
-    for proxy in proxy_list:
-        task = asyncio.create_task(
-            scrape_data(
+        asyncio.create_task(
+            receive_messages(player_consumer, player_receive_queue, shutdown_event)
+        )
+        asyncio.create_task(
+            send_messages(
+                topic="player",
+                producer=producer,
+                send_queue=player_send_queue,
+                shutdown_event=shutdown_event,
+            )
+        )
+        asyncio.create_task(
+            send_messages(
+                topic="scraper",
+                producer=producer,
+                send_queue=player_send_queue,
+                shutdown_event=shutdown_event,
+            )
+        )
+
+        # get proxies
+        proxy_list = get_proxies()
+        logger.info(f"gathered {len(proxy_list)} proxies")
+
+        if not proxy_list:
+            logger.error("No proxies available. Exiting.")
+            return
+
+        # for each proxy create a task
+        tasks = []
+        for proxy in proxy_list:
+            task = asyncio.create_task(
+                scrape_data(
+                    player_receive_queue=player_receive_queue,
+                    player_send_queue=player_send_queue,
+                    scraper_send_queue=scraper_send_queue,
+                    proxy=proxy,
+                    shutdown_event=shutdown_event,
+                )
+            )
+            tasks.append(task)
+
+        try:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Check for exceptions
+            exceptions = [result for result in results if isinstance(result, Exception)]
+
+            if exceptions:
+                # Handle the exceptions
+                for exception in exceptions:
+                    print(f"Task failed with exception: {exception}")
+        finally:
+            await shutdown_sequence(
                 player_receive_queue=player_receive_queue,
                 player_send_queue=player_send_queue,
                 scraper_send_queue=scraper_send_queue,
-                proxy=proxy,
+                producer=producer,
             )
-        )
-        tasks.append(task)
-
-    try:
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Check for exceptions
-        exceptions = [result for result in results if isinstance(result, Exception)]
-
-        if exceptions:
-            # Handle the exceptions
-            for exception in exceptions:
-                print(f"Task failed with exception: {exception}")
-    finally:
-        await shutdown_sequence(
-            player_receive_queue=player_receive_queue,
-            player_send_queue=player_send_queue,
-            scraper_send_queue=scraper_send_queue,
-            producer=producer,
-        )
 
     # if for some reason all tasks are completed shutdown
     await producer.stop()
@@ -314,9 +373,6 @@ if __name__ == "__main__":
         loop.run_until_complete(main())
     except RuntimeError:
         asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("KeyboardInterrupt")
-        sys.exit(0)
     except SystemExit:
         logger.info("SystemExit")
         sys.exit(0)
