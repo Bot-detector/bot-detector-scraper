@@ -49,7 +49,7 @@ class Scraper:
             self.sleeping = False
         return
 
-    async def lookup_hiscores(
+    async def lookup(
         self, player: Player, session: ClientSession
     ) -> Union[Player, dict]:
         await self.rate_limit()
@@ -67,6 +67,24 @@ class Scraper:
             player = await self.runemetrics_api.lookup_runemetrics(
                 player=player, session=session
             )
+
+        player.updated_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
+        return player, highscore
+
+    async def lookup_hiscores(
+        self, player: Player, session: ClientSession
+    ) -> Union[Player, dict]:
+        await self.rate_limit()
+        highscore = None
+        try:
+            highscore = await self.highscore_api.lookup_hiscores(
+                player=player, session=session
+            )
+            player.possible_ban = 0
+            player.confirmed_ban = 0
+            player.label_jagex = 0
+        except PlayerDoesNotExistException:
+            logger.warn(msg=f"{player.name} does not exist")
 
         player.updated_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
         return player, highscore

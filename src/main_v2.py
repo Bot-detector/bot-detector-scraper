@@ -87,7 +87,7 @@ async def scrape_data(
 
         player = Player(**player)
         try:
-            player, hiscore = await scraper.lookup_hiscores(player, session)
+            player, hiscore = await scraper.lookup(player, session)
             player: Player
             hiscore: dict
         except InvalidResponse as _:
