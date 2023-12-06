@@ -5,6 +5,7 @@ import time
 import traceback
 import uuid
 from asyncio import Queue
+import sys
 
 import requests
 from aiohttp import (
@@ -19,7 +20,10 @@ from pydantic import BaseModel
 from config.config import app_config
 from modules.api.webshare_api import Webshare
 from modules.gracefull_shutdown import GracefulShutdown
-from modules.scraper import Scraper
+import argparse
+from modules.highscore_scraper import HighScoreScraper
+from modules.runemetrics_scraper import RuneMetricsScraper
+
 from modules.validation.player import Player
 from utils.http_exception_handler import InvalidResponse
 
@@ -66,6 +70,7 @@ async def scrape_data(
     scraper_send_queue: Queue,
     proxy: str,
     shutdown_event: asyncio.Event,
+    scraper: Scraper,
 ):
     error_count = 0
     name = str(uuid.uuid4())[-8:]
@@ -223,6 +228,26 @@ async def shutdown_sequence(
 
 
 async def main():
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--scraper", choices=["highscore", "runemetrics"], required=True
+    )
+    args = parser.parse_args()
+
+    # Create the appropriate scraper based on the command-line argument
+    if args.scraper == "highscore":
+        uid = uuid.uuid4()  # Generate a random UUID
+        worker_name = f"highscore_scraper_{uid}"
+        scraper = HighScoreScraper(proxy=proxy, worker_name=worker_name)
+    elif args.scraper == "runemetrics":
+        uid = uuid.uuid4()  # Generate a random UUID
+        worker_name = f"runemetrics_scraper_{uid}"
+        scraper = RuneMetricsScraper(proxy=proxy, worker_name=worker_name)
+    else:
+        print(f"Invalid scraper: {args.scraper}")
+        sys.exit(1)
+
     shutdown_event = asyncio.Event()
     # get kafka engine
     player_consumer = await kafka_player_consumer()
@@ -286,6 +311,7 @@ async def main():
                 scraper_send_queue=scraper_send_queue,
                 proxy=proxy,
                 shutdown_event=shutdown_event,
+                scraper=scraper,
             )
         )
         tasks.append(task)

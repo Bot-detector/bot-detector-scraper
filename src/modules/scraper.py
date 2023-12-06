@@ -20,8 +20,6 @@ class Scraper:
         self.proxy = proxy
         self.worker_name = worker_name
         self.history = deque(maxlen=calls_per_minute)
-        self.highscore_api = HighscoreApi(proxy=proxy)
-        self.runemetrics_api = RuneMetricsApi(proxy)
         self.sleeping = False
 
     async def rate_limit(self):
@@ -48,31 +46,3 @@ class Scraper:
             await asyncio.sleep(sleep)
             self.sleeping = False
         return
-
-    async def lookup_hiscores(
-        self, player: Player, session: ClientSession
-    ) -> Union[Player, dict]:
-        await self.rate_limit()
-        highscore = None
-        try:
-            highscore = await self.highscore_api.lookup_hiscores(
-                player=player, session=session
-            )
-            player.possible_ban = 0
-            player.confirmed_ban = 0
-            player.label_jagex = 0
-        except PlayerDoesNotExistException:
-            player.possible_ban = 1
-            player.confirmed_player = 0
-            player = await self.runemetrics_api.lookup_runemetrics(
-                player=player, session=session
-            )
-
-        player.updated_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
-        return player, highscore
-
-    async def lookup_runemetrics(self, player: Player, session: ClientSession) -> dict:
-        await self.rate_limit()
-        return await self.runemetrics_api.lookup_runemetrics(
-            player=player, session=session
-        )

@@ -58,14 +58,14 @@ services:
       kafka:
         condition: service_healthy
 
-  scraper:
+  highscore:
     image: bot_detector/scraper
-    container_name: scraper
+    container_name: highscore
     build:
       context: .
       dockerfile: Dockerfile
       target: base
-    command: python src/main_v2.py
+    command: python src/main_v2.0.py --scraper highscore
     restart: on-failure
     networks:
       - botdetector-network
@@ -77,5 +77,24 @@ services:
       kafka:
         condition: service_healthy
 
+  runemetrics:
+    image: bot_detector/scraper
+    container_name: runemetrics
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    command: python src/main_v2.0.py --scraper runemetrics
+    restart: on-failure
+    networks:
+      - botdetector-network
+    env_file:
+      - .env
+    volumes:
+      -  ./src:/project/src
+    depends_on:
+      kafka:
+        condition: service_healthy
+        
 networks:
   botdetector-network:
