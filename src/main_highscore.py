@@ -68,7 +68,7 @@ async def process_messages(
             continue
 
         if highscore is None:
-            await runemetrics_send_queue.put(player)
+            await runemetrics_send_queue.put(player.dict())
         else:
             await send_queue.put({"player": player.dict(), "hiscores": highscore})
     await session.close()
@@ -120,7 +120,7 @@ async def main():
 
     asyncio.create_task(
         kafka.send_messages(
-            topic="runemetrics",
+            topic="scraper-runemetrics",
             producer=producer,
             send_queue=runemetrics_send_queue,
             shutdown_event=shutdown_event,
@@ -137,8 +137,17 @@ async def main():
                 error_queue=error_queue,
                 shutdown_event=shutdown_event,
                 proxy=proxy,
+                runemetrics_send_queue=runemetrics_send_queue,
             )
         )
         tasks.append(task)
     # await task for completion (never)
     await asyncio.gather(*tasks, return_exceptions=True)
+
+
+if __name__ == "__main__":
+    try:
+        loop = asyncio.get_running_loop()
+        loop.run_until_complete(main())
+    except RuntimeError:
+        asyncio.run(main())

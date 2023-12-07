@@ -57,8 +57,8 @@ def send_json_to_kafka(file_path, producer, topic):
     with open(file_path) as file:
         data = json.load(file)
 
-    for record in data:
-        print(record)
+    for i, record in enumerate(data):
+        print(i, record)
         # record = json.dumps(record).encode("utf-8")
         producer.send(topic, value=record)
     return

@@ -57,12 +57,13 @@ async def process_messages(
         data = await receive_queue.get()
         receive_queue.task_done()
         player, error = await scrape(player=data, scraper=scraper, session=session)
+        player: Player
 
         if error is not None:
             await error_queue.put(data)
             continue
 
-        await send_queue.put(player)
+        await send_queue.put(player.dict())
     await session.close()
     logger.info("shutdown")
 
@@ -76,7 +77,7 @@ async def get_proxies() -> list:
 
 async def main():
     shutdown_event = Event()
-    consumer = await kafka.kafka_consumer(topic="runemetrics", group="scraper-rm")
+    consumer = await kafka.kafka_consumer(topic="scraper-runemetrics", group="scraper")
     producer = await kafka.kafka_producer()
 
     receive_queue = Queue(maxsize=500)
@@ -102,7 +103,7 @@ async def main():
 
     asyncio.create_task(
         kafka.send_messages(
-            topic="runemetrics",
+            topic="scraper-runemetrics",
             producer=producer,
             send_queue=error_queue,
             shutdown_event=shutdown_event,
@@ -123,3 +124,11 @@ async def main():
         tasks.append(task)
     # await task for completion (never)
     await asyncio.gather(*tasks, return_exceptions=True)
+
+
+if __name__ == "__main__":
+    try:
+        loop = asyncio.get_running_loop()
+        loop.run_until_complete(main())
+    except RuntimeError:
+        asyncio.run(main())
