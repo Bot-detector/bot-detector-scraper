@@ -9,19 +9,19 @@ from aiohttp import ClientSession, ClientTimeout
 from config.config import AppConfig
 from modules import kafka
 from modules.api.webshare_api import Webshare
-from modules.scraper import Scraper
+from modules.scraper import HighScoreScraper, RuneMetricsScraper, Scraper
 from modules.validation.player import Player
 
 logger = logging.getLogger(__name__)
 
 
-async def scrape_runemetrics(
+async def scrape(
     player: dict, scraper: Scraper, session: ClientSession
 ) -> tuple[str, str]:
     error = None
     try:
         player = Player(**player)
-        player = await scraper.lookup_runemetrics(player=player, session=session)
+        player = await scraper.lookup(player=player, session=session)
     except Exception as error:
         error_type = type(error)
         logger.error(
@@ -45,7 +45,7 @@ async def process_messages(
     proxy: str,
 ):
     name = str(uuid.uuid4())[-8:]
-    scraper = Scraper(proxy=proxy, worker_name=name)
+    scraper = RuneMetricsScraper(proxy=proxy, worker_name=name)
     timeout = ClientTimeout(total=AppConfig().SESSION_TIMEOUT)
     session = ClientSession(timeout=timeout)
 
@@ -56,9 +56,7 @@ async def process_messages(
 
         data = await receive_queue.get()
         receive_queue.task_done()
-        player, error = await scrape_runemetrics(
-            player=data, scraper=scraper, session=session
-        )
+        player, error = await scrape(player=data, scraper=scraper, session=session)
 
         if error is not None:
             await error_queue.put(data)
@@ -95,7 +93,7 @@ async def main():
 
     asyncio.create_task(
         kafka.send_messages(
-            topic="player",
+            topic="scraper",
             producer=producer,
             send_queue=send_queue,
             shutdown_event=shutdown_event,

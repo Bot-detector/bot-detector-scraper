@@ -52,26 +52,63 @@ class Scraper:
     async def lookup(
         self, player: Player, session: ClientSession
     ) -> Union[Player, dict]:
-        await self.rate_limit()
-        highscore = None
-        try:
-            highscore = await self.highscore_api.lookup_hiscores(
-                player=player, session=session
-            )
-            player.possible_ban = 0
-            player.confirmed_ban = 0
-            player.label_jagex = 0
-        except PlayerDoesNotExistException:
-            player.possible_ban = 1
-            player.confirmed_player = 0
-            player = await self.runemetrics_api.lookup_runemetrics(
-                player=player, session=session
-            )
+        ...
 
-        player.updated_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
-        return player, highscore
+    # async def lookup(
+    #     self, player: Player, session: ClientSession
+    # ) -> Union[Player, dict]:
+    #     await self.rate_limit()
+    #     highscore = None
+    #     try:
+    #         highscore = await self.highscore_api.lookup_hiscores(
+    #             player=player, session=session
+    #         )
+    #         player.possible_ban = 0
+    #         player.confirmed_ban = 0
+    #         player.label_jagex = 0
+    #     except PlayerDoesNotExistException:
+    #         player.possible_ban = 1
+    #         player.confirmed_player = 0
+    #         player = await self.runemetrics_api.lookup_runemetrics(
+    #             player=player, session=session
+    #         )
 
-    async def lookup_hiscores(
+    #     player.updated_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
+    #     return player, highscore
+
+    # async def lookup_hiscores(
+    #     self, player: Player, session: ClientSession
+    # ) -> Union[Player, dict]:
+    #     await self.rate_limit()
+    #     highscore = None
+    #     try:
+    #         highscore = await self.highscore_api.lookup_hiscores(
+    #             player=player, session=session
+    #         )
+    #         player.possible_ban = 0
+    #         player.confirmed_ban = 0
+    #         player.label_jagex = 0
+    #     except PlayerDoesNotExistException:
+    #         logger.warn(msg=f"{player.name} does not exist")
+
+    #     player.updated_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
+    #     return player, highscore
+
+    # async def lookup_runemetrics(self, player: Player, session: ClientSession) -> dict:
+    #     await self.rate_limit()
+    #     return await self.runemetrics_api.lookup_runemetrics(
+    #         player=player, session=session
+    #     )
+
+
+class HighScoreScraper(Scraper):
+    def __init__(
+        self, proxy: str, worker_name: str, calls_per_minute: int = 60
+    ) -> None:
+        super().__init__(proxy, worker_name, calls_per_minute)
+        self.highscore_api = HighscoreApi(proxy=proxy)
+
+    async def lookup(
         self, player: Player, session: ClientSession
     ) -> Union[Player, dict]:
         await self.rate_limit()
@@ -84,12 +121,21 @@ class Scraper:
             player.confirmed_ban = 0
             player.label_jagex = 0
         except PlayerDoesNotExistException:
-            logger.warn(msg=f"{player.name} does not exist")
+            player.possible_ban = 1
+            player.confirmed_player = 0
 
         player.updated_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
         return player, highscore
 
-    async def lookup_runemetrics(self, player: Player, session: ClientSession) -> dict:
+
+class RuneMetricsScraper(Scraper):
+    def __init__(
+        self, proxy: str, worker_name: str, calls_per_minute: int = 60
+    ) -> None:
+        super().__init__(proxy, worker_name, calls_per_minute)
+        self.runemetrics_api = RuneMetricsApi(proxy)
+
+    async def lookups(self, player: Player, session: ClientSession) -> dict:
         await self.rate_limit()
         return await self.runemetrics_api.lookup_runemetrics(
             player=player, session=session
