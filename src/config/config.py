@@ -1,6 +1,3 @@
-import os
-
-import dotenv
 from pydantic import BaseSettings
 
 from config import logging
