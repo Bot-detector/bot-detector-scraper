@@ -19,9 +19,10 @@ async def scrape(
     player: dict, scraper: Scraper, session: ClientSession
 ) -> tuple[str, str]:
     error = None
+    highscore = None
     try:
         player = Player(**player)
-        player = await scraper.lookup(player=player, session=session)
+        player, highscore = await scraper.lookup(player=player, session=session)
     except Exception as error:
         error_type = type(error)
         logger.error(
@@ -34,13 +35,14 @@ async def scrape(
         )
         tb_str = traceback.format_exc()
         logger.error(f"{error}, \n{tb_str}")
-    return player, error
+    return player, highscore, error
 
 
 async def process_messages(
     receive_queue: Queue,
     send_queue: Queue,
     error_queue: Queue,
+    runemetrics_send_queue: Queue,
     shutdown_event: Event,
     proxy: str,
 ):
@@ -56,13 +58,19 @@ async def process_messages(
 
         data = await receive_queue.get()
         receive_queue.task_done()
-        player, error = await scrape(player=data, scraper=scraper, session=session)
+        player, highscore, error = await scrape(
+            player=data, scraper=scraper, session=session
+        )
+        player: Player  # can be cleaner probably
 
         if error is not None:
             await error_queue.put(data)
             continue
 
-        await send_queue.put(player)
+        if highscore is None:
+            await runemetrics_send_queue.put(player)
+        else:
+            await send_queue.put({"player": player.dict(), "hiscores": highscore})
     await session.close()
     logger.info("shutdown")
 
@@ -82,6 +90,7 @@ async def main():
     receive_queue = Queue(maxsize=500)
     send_queue = Queue(maxsize=100)
     error_queue = Queue(maxsize=500)
+    runemetrics_send_queue = Queue(maxsize=100)
 
     asyncio.create_task(
         kafka.receive_messages(
@@ -108,6 +117,16 @@ async def main():
             shutdown_event=shutdown_event,
         )
     )
+
+    asyncio.create_task(
+        kafka.send_messages(
+            topic="runemetrics",
+            producer=producer,
+            send_queue=runemetrics_send_queue,
+            shutdown_event=shutdown_event,
+        )
+    )
+
     proxy_list = await get_proxies()
     tasks = []
     for proxy in proxy_list:
