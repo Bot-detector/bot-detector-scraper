@@ -65,7 +65,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: base
-    command: python src/main_v2.0.py --scraper highscore
+    command: python src/main_v2.py --scraper highscore
     restart: on-failure
     networks:
       - botdetector-network
@@ -84,7 +84,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: base
-    command: python src/main_v2.0.py --scraper runemetrics
+    command: python src/main_v2.py --scraper runemetrics
     restart: on-failure
     networks:
       - botdetector-network
@@ -95,6 +95,6 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-        
+
 networks:
   botdetector-network:
