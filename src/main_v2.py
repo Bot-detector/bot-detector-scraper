@@ -23,6 +23,7 @@ from modules.gracefull_shutdown import GracefulShutdown
 import argparse
 from modules.highscore_scraper import HighScoreScraper
 from modules.runemetrics_scraper import RuneMetricsScraper
+from modules.scraper import Scraper
 
 from modules.validation.player import Player
 from utils.http_exception_handler import InvalidResponse
