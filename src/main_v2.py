@@ -71,11 +71,12 @@ async def scrape_data(
     scraper_send_queue: Queue,
     proxy: str,
     shutdown_event: asyncio.Event,
-    scraper: Scraper,
+    scraper_class: Scraper,
 ):
     error_count = 0
-    name = str(uuid.uuid4())[-8:]
-    scraper = Scraper(proxy=proxy, worker_name=name)
+    uid = str(uuid.uuid4())[-8:]
+    name = f"{scraper_class.__name__.lower()}_{uid}"
+    scraper = scraper_class(proxy=proxy, worker_name=name)
     session = ClientSession(timeout=ClientTimeout(total=app_config.SESSION_TIMEOUT))
 
     while not shutdown_event.is_set():
@@ -235,16 +236,11 @@ async def main():
         "--scraper", choices=["highscore", "runemetrics"], required=True
     )
     args = parser.parse_args()
-
     # Create the appropriate scraper based on the command-line argument
     if args.scraper == "highscore":
-        uid = uuid.uuid4()  # Generate a random UUID
-        worker_name = f"highscore_scraper_{uid}"
-        scraper = HighScoreScraper(proxy=proxy, worker_name=worker_name)
+        scraper_class = HighScoreScraper
     elif args.scraper == "runemetrics":
-        uid = uuid.uuid4()  # Generate a random UUID
-        worker_name = f"runemetrics_scraper_{uid}"
-        scraper = RuneMetricsScraper(proxy=proxy, worker_name=worker_name)
+        scraper_class = RuneMetricsScraper
     else:
         print(f"Invalid scraper: {args.scraper}")
         sys.exit(1)
@@ -312,7 +308,7 @@ async def main():
                 scraper_send_queue=scraper_send_queue,
                 proxy=proxy,
                 shutdown_event=shutdown_event,
-                scraper=scraper,
+                scraper_class=scraper_class,
             )
         )
         tasks.append(task)
