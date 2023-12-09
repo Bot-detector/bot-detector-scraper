@@ -14,9 +14,10 @@ permissions: write-all
 
 
 env:
-  VALUE_FILE: bd-scraper-prd/deployment.yaml
-  REGISTRY: quay.io/bot_detector/bd-scraper
+  VALUE_FILE: scraper-highscore-prd/deployment.yaml
+  REGISTRY: quay.io/bot_detector/scraper-highscore
   ENVIRONMENT: prd
+  TARGET: production-highscore
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -38,7 +39,7 @@ jobs:
 
       - name: Docker Build
         run: |
-          docker build . --file Dockerfile --network=host -t "${REGISTRY}:${{ steps.vars.outputs.GIT_HASH }}" --target production --build-arg api_port=5000 --build-arg root_path=""
+          docker build . --file Dockerfile --network=host -t "${REGISTRY}:${{ steps.vars.outputs.GIT_HASH }}" --target "${TARGET}"
 
       - name: Login to Quay registry
         run: echo "${{ secrets.QUAY_REGISTERY_PASSWORD }}" | docker login -u "bot_detector+quay_robot" quay.io --password-stdin
