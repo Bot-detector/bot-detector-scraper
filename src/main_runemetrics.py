@@ -19,6 +19,7 @@ async def scrape(
     player: dict, scraper: Scraper, session: ClientSession
 ) -> tuple[str, str]:
     error = None
+
     try:
         player = Player(**player)
         player = await scraper.lookup(player=player, session=session)
@@ -47,24 +48,23 @@ async def process_messages(
     name = str(uuid.uuid4())[-8:]
     scraper = RuneMetricsScraper(proxy=proxy, worker_name=name)
     timeout = ClientTimeout(total=AppConfig().SESSION_TIMEOUT)
-    session = ClientSession(timeout=timeout)
 
-    while not shutdown_event.is_set():
-        if receive_queue.empty():
-            await asyncio.sleep(1)
-            continue
+    async with ClientSession(timeout=timeout) as session:
+        while not shutdown_event.is_set():
+            if receive_queue.empty():
+                await asyncio.sleep(1)
+                continue
 
-        data = await receive_queue.get()
-        receive_queue.task_done()
-        player, error = await scrape(player=data, scraper=scraper, session=session)
-        player: Player
+            data = await receive_queue.get()
+            receive_queue.task_done()
+            player, error = await scrape(player=data, scraper=scraper, session=session)
+            player: Player
 
-        if error is not None:
-            await error_queue.put(data)
-            continue
+            if error is not None:
+                await error_queue.put(data)
+                continue
 
-        await send_queue.put(player.dict())
-    await session.close()
+            await send_queue.put(player.dict())
     logger.info("shutdown")
 
 

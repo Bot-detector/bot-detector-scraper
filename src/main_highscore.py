@@ -49,29 +49,28 @@ async def process_messages(
     name = str(uuid.uuid4())[-8:]
     scraper = HighScoreScraper(proxy=proxy, worker_name=name)
     timeout = ClientTimeout(total=AppConfig().SESSION_TIMEOUT)
-    session = ClientSession(timeout=timeout)
 
-    while not shutdown_event.is_set():
-        if receive_queue.empty():
-            await asyncio.sleep(1)
-            continue
+    async with ClientSession(timeout=timeout) as session:
+        while not shutdown_event.is_set():
+            if receive_queue.empty():
+                await asyncio.sleep(1)
+                continue
 
-        data = await receive_queue.get()
-        receive_queue.task_done()
-        player, highscore, error = await scrape(
-            player=data, scraper=scraper, session=session
-        )
-        player: Player  # can be cleaner probably
+            data = await receive_queue.get()
+            receive_queue.task_done()
+            player, highscore, error = await scrape(
+                player=data, scraper=scraper, session=session
+            )
+            player: Player  # can be cleaner probably
 
-        if error is not None:
-            await error_queue.put(data)
-            continue
+            if error is not None:
+                await error_queue.put(data)
+                continue
 
-        if highscore is None:
-            await runemetrics_send_queue.put(player.dict())
-        else:
-            await send_queue.put({"player": player.dict(), "hiscores": highscore})
-    await session.close()
+            if highscore is None:
+                await runemetrics_send_queue.put(player.dict())
+            else:
+                await send_queue.put({"player": player.dict(), "hiscores": highscore})
     logger.info("shutdown")
 
 

@@ -135,7 +135,7 @@ class RuneMetricsScraper(Scraper):
         super().__init__(proxy, worker_name, calls_per_minute)
         self.runemetrics_api = RuneMetricsApi(proxy)
 
-    async def lookups(self, player: Player, session: ClientSession) -> dict:
+    async def lookup(self, player: Player, session: ClientSession) -> dict:
         await self.rate_limit()
         return await self.runemetrics_api.lookup_runemetrics(
             player=player, session=session
