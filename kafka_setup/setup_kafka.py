@@ -4,8 +4,65 @@ import os
 import time
 import zipfile
 
-from kafka import KafkaProducer
+from kafka import KafkaConsumer, KafkaProducer, TopicPartition
 from kafka.admin import KafkaAdminClient, NewTopic
+
+
+def get_num_partitions(topic):
+    # Get the Kafka broker address from the environment variable
+    kafka_broker = os.environ.get("KAFKA_BROKER", "localhost:9094")
+
+    # Create KafkaConsumer
+    consumer = KafkaConsumer(bootstrap_servers=kafka_broker)
+
+    # Get the metadata for the specified topic
+    metadata = consumer.partitions_for_topic(topic)
+
+    # Close the consumer
+    consumer.close()
+
+    # Return the number of partitions
+    return len(metadata) if metadata is not None else 0
+
+
+def validate_partition_size(topic):
+    kafka_broker = os.environ.get("KAFKA_BROKER", "localhost:9094")
+    # Get the number of partitions for the topic
+    num_partitions = get_num_partitions(topic)
+
+    if num_partitions == 0:
+        print(f"Topic '{topic}' not found or has no partitions.")
+        return
+
+    # Create KafkaConsumer
+    consumer = KafkaConsumer(
+        bootstrap_servers=kafka_broker, enable_auto_commit=False, group_id=None
+    )
+
+    # Initialize a dictionary to store the size of each partition
+    partition_sizes = {partition: 0 for partition in range(num_partitions)}
+
+    for partition in range(num_partitions):
+        # Assign the consumer to a specific partition
+        topic_partition = TopicPartition(topic, partition)
+        consumer.assign([topic_partition])
+
+        # Seek to the end of the partition to get the current offset
+        consumer.seek_to_end(topic_partition)
+        end_offset = consumer.position(topic_partition)
+
+        # Store the size of the partition
+        partition_sizes[partition] = end_offset
+
+    total_size = 0
+    # Print the sizes of each partition
+    for partition, size in partition_sizes.items():
+        total_size += size
+        print(f"Partition {partition}: {size} messages")
+
+    # Close the consumer
+    consumer.close()
+    return total_size
 
 
 def create_topics():
@@ -97,6 +154,9 @@ def setup_kafka():
     create_topics()
     data = get_data()
     insert_data(data=data, topic="player")
+    total_size = validate_partition_size(topic="player")
+    print(f"{len(data)=} and {total_size=} must be the same")
+    assert len(data) == total_size, f"{len(data)=} and {total_size=} must be the same"
 
 
 if __name__ == "__main__":
