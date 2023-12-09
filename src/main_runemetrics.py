@@ -64,7 +64,7 @@ async def process_messages(
                 await error_queue.put(data)
                 continue
 
-            await send_queue.put(player.dict())
+            await send_queue.put({"player": player.dict()})
     logger.info("shutdown")
 
 
