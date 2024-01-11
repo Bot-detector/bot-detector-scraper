@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import time
+import traceback
 from asyncio import Event, Queue
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
@@ -52,7 +53,21 @@ async def receive_messages(
     batch_size: int = 200,
 ):
     while not shutdown_event.is_set():
-        batch = await consumer.getmany(timeout_ms=1000, max_records=batch_size)
+        try:
+            batch = await consumer.getmany(timeout_ms=1000, max_records=batch_size)
+        except Exception as error:
+            error_type = type(error)
+            logger.error(
+                {
+                    "error_type": error_type.__name__,
+                    "error": error,
+                }
+            )
+            tb_str = traceback.format_exc()
+            logger.error(f"{error}, \n{tb_str}")
+            await asyncio.sleep(5)  # Add a delay before retrying
+            continue  # Restart the loop
+
         for tp, messages in batch.items():
             logger.info(f"Partition {tp}: {len(messages)} messages")
             await asyncio.gather(*[receive_queue.put(m.value) for m in messages])
