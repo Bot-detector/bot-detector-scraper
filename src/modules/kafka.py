@@ -32,6 +32,7 @@ async def kafka_consumer(topic: str, group: str):
                 group_id=group,
                 value_deserializer=lambda x: json.loads(x.decode("utf-8")),
                 auto_offset_reset="earliest",
+                metadata_max_age_ms=60000,
             )
             logger.info(await consumer.topics())
             await consumer.start()
@@ -41,7 +42,7 @@ async def kafka_consumer(topic: str, group: str):
             logger.error(f"Error connecting to Kafka: {e}")
             retry_count += 1
             logger.info(f"Retrying Kafka connection ({retry_count}/{max_retries})...")
-            await asyncio.sleep(5)  # Add a delay before retrying
+            await asyncio.sleep(30)  # Add a delay before retrying
 
     raise RuntimeError("Failed to connect to Kafka after multiple retries")
 
