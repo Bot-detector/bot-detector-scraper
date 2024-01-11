@@ -33,7 +33,9 @@ async def kafka_consumer(topic: str, group: str):
                 value_deserializer=lambda x: json.loads(x.decode("utf-8")),
                 auto_offset_reset="earliest",
             )
+            logger.info(await consumer.topics())
             await consumer.start()
+            logger.info("started")
             return consumer
         except Exception as e:
             logger.error(f"Error connecting to Kafka: {e}")
