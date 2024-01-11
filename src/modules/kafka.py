@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 async def kafka_consumer(topic: str, group: str):
+    logger.info(f"starting consumer, topic: {topic}, group: {group}")
     consumer = AIOKafkaConsumer(
         topic,
         bootstrap_servers=[app_config.KAFKA_HOST],
@@ -25,6 +26,7 @@ async def kafka_consumer(topic: str, group: str):
 
 
 async def kafka_producer():
+    logger.info(f"starting producer")
     producer = AIOKafkaProducer(
         bootstrap_servers=[app_config.KAFKA_HOST],
         value_serializer=lambda v: json.dumps(v).encode(),
@@ -52,6 +54,7 @@ async def receive_messages(
     shutdown_event: Event,
     batch_size: int = 200,
 ):
+    logger.info(f"start receiving messages, topics={await consumer.topics()}")
     while not shutdown_event.is_set():
         try:
             batch = await consumer.getmany(timeout_ms=1000, max_records=batch_size)
@@ -74,7 +77,7 @@ async def receive_messages(
             logger.info("done")
             await consumer.commit()
 
-    logger.info("shutdown")
+    logger.info("stop receiving messages")
 
 
 async def send_messages(
@@ -85,7 +88,7 @@ async def send_messages(
 ):
     start_time = time.time()
     messages_sent = 0
-
+    logger.info(f"start sending messages, topic={topic}")
     while not shutdown_event.is_set():
         if send_queue.empty():
             if messages_sent > 0:
