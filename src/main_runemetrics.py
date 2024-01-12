@@ -7,7 +7,7 @@ from asyncio import Event, Queue
 from aiohttp import ClientSession, ClientTimeout
 
 from config.config import AppConfig
-from modules import kafka
+from modules import _kafka
 from modules.api.webshare_api import Webshare
 from modules.scraper import HighScoreScraper, RuneMetricsScraper, Scraper
 from modules.validation.player import Player
@@ -77,15 +77,17 @@ async def get_proxies() -> list:
 
 async def main():
     shutdown_event = Event()
-    consumer = await kafka.kafka_consumer(topic="scraper-runemetrics", group="scraper")
-    producer = await kafka.kafka_producer()
+    consumer = await _kafka.kafka_consumer_safe(
+        topic="scraper-runemetrics", group="scraper"
+    )
+    producer = await _kafka.kafka_producer_safe()
 
     receive_queue = Queue(maxsize=500)
     send_queue = Queue(maxsize=100)
     error_queue = Queue(maxsize=500)
 
     asyncio.create_task(
-        kafka.receive_messages(
+        _kafka.receive_messages(
             consumer=consumer,
             receive_queue=receive_queue,
             shutdown_event=shutdown_event,
@@ -93,7 +95,7 @@ async def main():
     )
 
     asyncio.create_task(
-        kafka.send_messages(
+        _kafka.send_messages(
             topic="scraper",
             producer=producer,
             send_queue=send_queue,
@@ -102,7 +104,7 @@ async def main():
     )
 
     asyncio.create_task(
-        kafka.send_messages(
+        _kafka.send_messages(
             topic="scraper-runemetrics",
             producer=producer,
             send_queue=error_queue,
