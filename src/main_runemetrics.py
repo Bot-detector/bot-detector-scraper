@@ -77,10 +77,8 @@ async def get_proxies() -> list:
 
 async def main():
     shutdown_event = Event()
-    consumer = await _kafka.kafka_consumer_safe(
-        topic="scraper-runemetrics", group="scraper"
-    )
-    producer = await _kafka.kafka_producer_safe()
+    consumer = await _kafka.kafka_consumer(topic="scraper-runemetrics", group="scraper")
+    producer = await _kafka.kafka_producer()
 
     receive_queue = Queue(maxsize=500)
     send_queue = Queue(maxsize=100)

@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import json
 import logging
 import time
@@ -12,8 +13,48 @@ from config.config import app_config
 logger = logging.getLogger(__name__)
 
 
+def print_traceback(_, error):
+    error_type = type(error)
+    logger.error(
+        {
+            "error_type": error_type.__name__,
+            "error": error,
+        }
+    )
+    tb_str = traceback.format_exc()
+    logger.error(f"{error}, \n{tb_str}")
+
+
+def retry(max_retries=3, retry_delay=5, on_retry=None, on_failure=None):
+    def wrapper(func):
+        @functools.wraps(func)
+        async def wrapped(*args, **kwargs):
+            retry_count = 0
+
+            while retry_count < max_retries:
+                try:
+                    return await func(*args, **kwargs)
+                except Exception as e:
+                    if on_retry:
+                        on_retry(retry_count, e)
+
+                    retry_count += 1
+                    logger.error(f"Error: {e}")
+                    logger.info(f"Retrying ({retry_count}/{max_retries})...")
+                    await asyncio.sleep(retry_delay)  # Add a delay before retrying
+
+            if on_failure:
+                on_failure(retry_count)
+
+            raise RuntimeError(f"Failed after {max_retries} retries")
+
+        return wrapped
+
+    return wrapper
+
+
 def log_speed(
-    counter: int, start_time: float, _queue: Queue, topic: str, interval: int = 60
+    counter: int, start_time: float, _queue: Queue, topic: str, interval: int = 15
 ) -> tuple[float, int]:
     # Calculate the time elapsed since the function started
     delta_time = time.time() - start_time
@@ -37,21 +78,22 @@ def log_speed(
     return time.time(), 0
 
 
-async def kafka_consumer_safe(topic: str, group: str, max_retries=3, retry_delay=30):
-    retry_count = 0
+# async def kafka_consumer_safe(topic: str, group: str, max_retries=3, retry_delay=30):
+#     retry_count = 0
 
-    while retry_count < max_retries:
-        try:
-            return await kafka_consumer(topic, group)
-        except Exception as e:
-            retry_count += 1
-            logger.error(f"Error connecting to Kafka: {e}")
-            logger.info(f"Retrying Kafka connection ({retry_count}/{max_retries})...")
-            await asyncio.sleep(retry_delay)  # Add a delay before retrying
+#     while retry_count < max_retries:
+#         try:
+#             return await kafka_consumer(topic, group)
+#         except Exception as e:
+#             retry_count += 1
+#             logger.error(f"Error connecting to Kafka: {e}")
+#             logger.info(f"Retrying Kafka connection ({retry_count}/{max_retries})...")
+#             await asyncio.sleep(retry_delay)  # Add a delay before retrying
 
-    raise RuntimeError("Failed to connect to Kafka after multiple retries")
+#     raise RuntimeError("Failed to connect to Kafka after multiple retries")
 
 
+@retry(max_retries=3, retry_delay=5, on_failure=print_traceback)
 async def kafka_consumer(topic: str, group: str):
     logger.info(f"Starting consumer, {topic=}, {group=}, {app_config.KAFKA_HOST=}")
 
@@ -67,21 +109,22 @@ async def kafka_consumer(topic: str, group: str):
     return consumer
 
 
-async def kafka_producer_safe(max_retries=3, retry_delay=30):
-    retry_count = 0
+# async def kafka_producer_safe(max_retries=3, retry_delay=30):
+#     retry_count = 0
 
-    while retry_count < max_retries:
-        try:
-            return await kafka_producer()
-        except Exception as e:
-            retry_count += 1
-            logger.error(f"Error connecting to Kafka: {e}")
-            logger.info(f"Retrying Kafka connection ({retry_count}/{max_retries})...")
-            await asyncio.sleep(retry_delay)  # Add a delay before retrying
+#     while retry_count < max_retries:
+#         try:
+#             return await kafka_producer()
+#         except Exception as e:
+#             retry_count += 1
+#             logger.error(f"Error connecting to Kafka: {e}")
+#             logger.info(f"Retrying Kafka connection ({retry_count}/{max_retries})...")
+#             await asyncio.sleep(retry_delay)  # Add a delay before retrying
 
-    raise RuntimeError("Failed to connect to Kafka after multiple retries")
+#     raise RuntimeError("Failed to connect to Kafka after multiple retries")
 
 
+@retry(max_retries=3, retry_delay=5, on_failure=print_traceback)
 async def kafka_producer():
     logger.info(f"Starting producer")
 
@@ -95,6 +138,7 @@ async def kafka_producer():
     return producer
 
 
+@retry(max_retries=3, retry_delay=5, on_failure=print_traceback)
 async def receive_messages(
     consumer: AIOKafkaConsumer,
     receive_queue: Queue,
@@ -112,6 +156,7 @@ async def receive_messages(
     logger.info("shutdown")
 
 
+@retry(max_retries=3, retry_delay=5, on_failure=print_traceback)
 async def send_messages(
     topic: str,
     producer: AIOKafkaProducer,
