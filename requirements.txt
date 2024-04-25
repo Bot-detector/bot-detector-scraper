@@ -20,7 +20,7 @@ pathspec==0.10.3
 platformdirs==2.6.0
 pycares==4.3.0
 pycparser==2.21
-pydantic==1.10.8
+pydantic==1.10.13
 python-dotenv==0.21.0
 requests==2.31.0
 rfc3339==6.2
