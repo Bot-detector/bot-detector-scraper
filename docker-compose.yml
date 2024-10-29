@@ -102,8 +102,10 @@ services:
       context: .
       dockerfile: Dockerfile
       target: base
-    command: python src/hs_manager.py
+    command: python src/main.py --run-hs-worker
     restart: on-failure
+    ports:
+      - 8000:8000
     networks:
       - botdetector-network
     env_file:
