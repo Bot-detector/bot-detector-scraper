@@ -1,8 +1,6 @@
 import os
 
-from pydantic import BaseSettings
-
-from config import logging
+from pydantic_settings import BaseSettings
 
 
 class AppConfig(BaseSettings):
