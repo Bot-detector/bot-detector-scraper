@@ -56,56 +56,43 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-
-  # scraper_highscore:
-  #   image: bot_detector/scraper_highscore
-  #   container_name: scraper_highscore
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #     target: base
-  #   command: python src/main_highscore.py
-  #   restart: on-failure
-  #   networks:
-  #     - botdetector-network
-  #   env_file:
-  #     - .env
-  #   volumes:
-  #     -  ./src:/project/src
-  #   depends_on:
-  #     kafka:
-  #       condition: service_healthy
-
-  # scraper_runemetrics:
-  #   image: bot_detector/scraper_runemetrics
-  #   container_name: scraper_runemetrics
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #     target: base
-  #   command: python src/main_runemetrics.py
-  #   restart: on-failure
-  #   networks:
-  #     - botdetector-network
-  #   env_file:
-  #     - .env
-  #   volumes:
-  #     -  ./src:/project/src
-  #   depends_on:
-  #     kafka:
-  #       condition: service_healthy
-  
-  scraper_runemetrics:
-    image: bot_detector/scraper_osrs
-    container_name: scraper_osrs
+        
+  scraper_highscore:
+    image: bd/scraper_hiscore
+    container_name: scraper_hiscore
     build:
       context: .
       dockerfile: Dockerfile
       target: base
-    command: python src/main.py --run-hs-worker
+    command: >
+      sh -c "pip install watchdog && watchmedo auto-restart --patterns='*.py' --recursive -- python src/main.py --run-hs-worker"
     restart: on-failure
     ports:
+      # host:container
       - 8000:8000
+    networks:
+      - botdetector-network
+    env_file:
+      - .env
+    volumes:
+      -  ./src:/project/src
+    depends_on:
+      kafka:
+        condition: service_healthy
+  
+  scraper_runemetrics:
+    image: bd/scraper_runemetrics
+    container_name: scraper_runemetrics
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    command: >
+      sh -c "pip install watchdog && watchmedo auto-restart --patterns='*.py' --recursive -- python src/main.py --run-rm-worker"
+    restart: on-failure
+    ports:
+      # host:container
+      - 8001:8000
     networks:
       - botdetector-network
     env_file:

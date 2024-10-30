@@ -22,7 +22,7 @@ kafka-python==2.0.2
 multidict==6.1.0
 mypy-extensions==1.0.0
 nodeenv==1.9.1
-osrs==0.0.12
+osrs==0.0.13
 packaging==24.1
 pathspec==0.12.1
 platformdirs==4.3.6
