@@ -29,19 +29,18 @@ class Webshare:
         print(f"to get an api key, please use our referral code: {referral}")
         self.api_key = api_key
 
+        if not api_key:
+            raise Exception("No api key provided")
+
     async def fetch_proxies(
         self, session: ClientSession, url: str, headers: dict
     ) -> tuple[list[Proxy], dict]:
         async with session.get(url, headers=headers) as response:
+            response.raise_for_status()
             if response.status == 200:
                 proxies: dict = await response.json()
                 results = proxies.get("results", [])
                 return [Proxy(**r) for r in results], proxies
-            else:
-                logger.error(
-                    f"Failed to retrieve proxies. Status code: {response.status}"
-                )
-                return []
 
     async def get_proxies(self):
         URL = "https://proxy.webshare.io/api/proxy/list/"

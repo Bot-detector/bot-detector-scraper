@@ -1,25 +1,11 @@
-import os
-import sys
-
-# Get the path to the parent directory (one folder up from the test file)
-parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-print(parent_directory)
-
-# Append the "src" folder to the Python path
-src_folder = os.path.join(parent_directory, "src")
-print(src_folder)
-
-sys.path.append(src_folder)
-
 import pytest
 from aiohttp import ClientSession
 
-from modules.api.highscore_api import (
+from src.modules.api.highscore_api import (
     HighscoreApi,
-    InvalidResponse,
     PlayerDoesNotExistException,
 )
-from modules.validation.player import Player
+from src.modules.validation.player import Player
 
 
 @pytest.mark.asyncio

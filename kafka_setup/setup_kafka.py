@@ -1,7 +1,6 @@
 # setup_kafka.py
 import json
 import os
-import time
 import zipfile
 
 from kafka import KafkaConsumer, KafkaProducer, TopicPartition

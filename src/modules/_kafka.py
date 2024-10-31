@@ -126,7 +126,7 @@ async def kafka_consumer(topic: str, group: str):
 
 @retry(max_retries=3, retry_delay=5, on_failure=print_traceback)
 async def kafka_producer():
-    logger.info(f"Starting producer")
+    logger.info("Starting producer")
 
     producer = AIOKafkaProducer(
         bootstrap_servers=[app_config.KAFKA_HOST],

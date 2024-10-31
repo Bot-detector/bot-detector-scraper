@@ -51,8 +51,7 @@ class Scraper:
 
     async def lookup(
         self, player: Player, session: ClientSession
-    ) -> Union[Player, dict]:
-        ...
+    ) -> Union[Player, dict]: ...
 
     # async def lookup(
     #     self, player: Player, session: ClientSession
@@ -110,7 +109,7 @@ class HighScoreScraper(Scraper):
 
     async def lookup(
         self, player: Player, session: ClientSession
-    ) -> Union[Player, dict]:
+    ) -> tuple[Player, dict | None]:
         await self.rate_limit()
         highscore = None
         try:
