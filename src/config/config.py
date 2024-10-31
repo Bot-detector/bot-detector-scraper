@@ -2,8 +2,6 @@ import os
 
 from pydantic import BaseSettings
 
-from config import logging
-
 
 class AppConfig(BaseSettings):
     PROXY_API_KEY: str = os.getenv("PROXY_API_KEY")

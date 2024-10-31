@@ -14,7 +14,7 @@ sys.path.append(src_folder)
 import pytest
 from aiohttp import ClientSession
 
-from modules.api.runemetrics_api import InvalidResponse, RuneMetricsApi
+from modules.api.runemetrics_api import RuneMetricsApi
 from modules.validation.player import Player
 
 

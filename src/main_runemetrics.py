@@ -1,18 +1,39 @@
 import asyncio
 import logging
+import time
 import traceback
 import uuid
 from asyncio import Event, Queue
 
 from aiohttp import ClientSession, ClientTimeout
+from prometheus_client import Counter, Histogram, start_http_server
 
 from config.config import AppConfig
 from modules import _kafka
 from modules.api.webshare_api import Webshare
-from modules.scraper import HighScoreScraper, RuneMetricsScraper, Scraper
+from modules.scraper import RuneMetricsScraper, Scraper
 from modules.validation.player import Player
 
 logger = logging.getLogger(__name__)
+
+start_http_server(8000)
+
+# Prometheus metrics
+success_counter = Counter(
+    name="rune_metrics_success",
+    documentation="Successful RuneMetrics requests",
+    labelnames=["proxy"],
+)
+error_counter = Counter(
+    name="rune_metrics_errors",
+    documentation="Errors in RuneMetrics requests",
+    labelnames=["proxy"],
+)
+latency_histogram = Histogram(
+    name="rune_metrics_latency",
+    documentation="Latency of RuneMetrics requests",
+    labelnames=["proxy"],
+)
 
 
 async def scrape(
@@ -49,6 +70,7 @@ async def process_messages(
     scraper = RuneMetricsScraper(proxy=proxy, worker_name=name)
     timeout = ClientTimeout(total=AppConfig().SESSION_TIMEOUT)
 
+    _proxy = proxy.split("@")[1]
     async with ClientSession(timeout=timeout) as session:
         while not shutdown_event.is_set():
             if receive_queue.empty():
@@ -57,13 +79,24 @@ async def process_messages(
 
             data = await receive_queue.get()
             receive_queue.task_done()
+
+            start_time = time.time()
+
             player, error = await scrape(player=data, scraper=scraper, session=session)
             player: Player
 
+            latency = time.time() - start_time
+
+            # Record latency, labeled by proxy
+            latency_histogram.labels(proxy=_proxy).observe(latency)
+
             if error is not None:
+                error_counter.labels(proxy=_proxy).inc()
                 await error_queue.put(data)
                 continue
 
+            # Increment success counter
+            success_counter.labels(proxy=_proxy).inc()
             await send_queue.put({"player": player.dict()})
     logger.info("shutdown")
 

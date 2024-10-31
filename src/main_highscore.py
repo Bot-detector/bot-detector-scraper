@@ -1,10 +1,12 @@
 import asyncio
 import logging
+import time
 import traceback
 import uuid
 from asyncio import Event, Queue
 
 from aiohttp import ClientSession, ClientTimeout
+from prometheus_client import Counter, Histogram, start_http_server
 
 from config.config import AppConfig
 from modules import _kafka
@@ -14,10 +16,38 @@ from modules.validation.player import Player
 
 logger = logging.getLogger(__name__)
 
+start_http_server(8000)
+
+# Define Prometheus metrics
+total_counter = Counter(
+    name="highscore_request_count",
+    documentation="Count of request player stats fetches",
+)
+success_counter = Counter(
+    name="highscore_success_count",
+    documentation="Count of successful player stats fetches",
+    labelnames=["proxy"],
+)
+error_counter = Counter(
+    name="highscore_error_count",
+    documentation="Count of failed player stats fetches",
+    labelnames=["proxy"],
+)
+not_found_counter = Counter(
+    name="highscore_not_found_count",
+    documentation="Count of players not found",
+    labelnames=["proxy"],
+)
+latency_histogram = Histogram(
+    name="highscore_fetch_latency_seconds",
+    documentation="Latency of player stats fetches",
+    labelnames=["proxy"],
+)
+
 
 async def scrape(
-    player: dict, scraper: Scraper, session: ClientSession
-) -> tuple[str, str]:
+    player: dict, scraper: HighScoreScraper, session: ClientSession
+) -> tuple[Player, dict | None, str | None]:
     error = None
     highscore = None
     try:
@@ -50,6 +80,7 @@ async def process_messages(
     scraper = HighScoreScraper(proxy=proxy, worker_name=name)
     timeout = ClientTimeout(total=AppConfig().SESSION_TIMEOUT)
 
+    _proxy = proxy.split("@")[1]
     async with ClientSession(timeout=timeout) as session:
         while not shutdown_event.is_set():
             if receive_queue.empty():
@@ -58,18 +89,33 @@ async def process_messages(
 
             data = await receive_queue.get()
             receive_queue.task_done()
+
+            # increment total counter
+            total_counter.inc()
+
+            start_time = time.time()
             player, highscore, error = await scrape(
                 player=data, scraper=scraper, session=session
             )
             player: Player  # can be cleaner probably
+            latency = time.time() - start_time
+
+            # Record latency, labeled by proxy
+            latency_histogram.labels(proxy=_proxy).observe(latency)
 
             if error is not None:
+                # increment error counter
+                error_counter.labels(proxy=_proxy).inc()
                 await error_queue.put(data)
                 continue
 
             if highscore is None:
+                # increment not found counter
+                not_found_counter.labels(proxy=_proxy).inc()
                 await runemetrics_send_queue.put(player.dict())
             else:
+                # Increment success counter
+                success_counter.labels(proxy=_proxy).inc()
                 await send_queue.put({"player": player.dict(), "hiscores": highscore})
     logger.info("shutdown")
 
@@ -82,6 +128,8 @@ async def get_proxies() -> list:
 
 
 async def main():
+    proxy_list = await get_proxies()
+
     shutdown_event = Event()
     consumer = await _kafka.kafka_consumer(topic="player", group="scraper")
     producer = await _kafka.kafka_producer()
@@ -126,7 +174,6 @@ async def main():
         )
     )
 
-    proxy_list = await get_proxies()
     tasks = []
     for proxy in proxy_list:
         task = asyncio.create_task(

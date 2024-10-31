@@ -1,0 +1,19 @@
+[project]
+name = "bot-detector-scraper"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp>=3.10.10",
+    "aiokafka>=0.12.0",
+    "prometheus-client>=0.21.0",
+    "pydantic==1.10.8",
+    "python-dotenv>=1.0.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.3",
+    "ruff>=0.7.1",
+]
