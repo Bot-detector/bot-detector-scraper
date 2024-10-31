@@ -175,7 +175,7 @@ class RuneMetricsWorkerManager:
             return
 
     async def worker(self, proxy):
-        limiter = RateLimiter(calls_per_interval=100, interval=60)
+        limiter = RateLimiter(calls_per_interval=60, interval=60)
         hiscore_instance = RuneMetrics(proxy=proxy, rate_limiter=limiter)
 
         async with ClientSession() as session:

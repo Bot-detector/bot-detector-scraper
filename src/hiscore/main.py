@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 KAFKA_TOPIC_HIGHSCORE = "player"
 
 # Define Prometheus metrics
+total_counter = Counter(
+    name="highscore_request_count",
+    documentation="Count of request player stats fetches",
+)
 success_counter = Counter(
     name="highscore_success_count",
     documentation="Count of successful player stats fetches",
@@ -72,9 +76,9 @@ class HighscoreWorkerManager:
         self.kafka_servers = kafka_servers
         self.kafka_topic = kafka_topic
         self.kafka_group = kafka_group
-        self.player_queue = asyncio.Queue(maxsize=10)
+        self.player_queue = asyncio.Queue(maxsize=100)
         self.player_not_found_queue = asyncio.Queue()
-        self.semaphore = asyncio.Semaphore(len(proxies))
+        self.semaphore = asyncio.Semaphore(value=25)
         self.kafka_producer: AIOKafkaProducer = None
         self.kafka_consumer: AIOKafkaConsumer = None
 
@@ -164,6 +168,7 @@ class HighscoreWorkerManager:
     ):
         proxy = session._proxy
         try:
+            total_counter.inc()
             start_time = time.time()
             pstats = await hiscore_instance.get(
                 mode=Mode.OLDSCHOOL,
@@ -231,7 +236,7 @@ class HighscoreWorkerManager:
             return
 
     async def worker(self, proxy):
-        limiter = RateLimiter(calls_per_interval=100, interval=60)
+        limiter = RateLimiter(calls_per_interval=60, interval=60)
         hiscore_instance = Hiscore(proxy=proxy, rate_limiter=limiter)
 
         async with ClientSession() as session:
@@ -248,7 +253,9 @@ class HighscoreWorkerManager:
                     break
 
                 async with self.semaphore:
-                    await self.fetch_player_stats(session, player, hiscore_instance)
+                    asyncio.create_task(
+                        self.fetch_player_stats(session, player, hiscore_instance)
+                    )
 
     async def start_workers(self):
         self.tasks = [asyncio.create_task(self.worker(p)) for p in self.proxies]
