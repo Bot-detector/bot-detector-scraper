@@ -1,5 +1,5 @@
 # Base stage
-FROM python:3.11-slim as base
+FROM python:3.11-slim AS base
 
 # Keeps Python from generating .pyc files in the container
 ENV PYTHONDONTWRITEBYTECODE=1
