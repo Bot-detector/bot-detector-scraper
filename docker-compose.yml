@@ -59,20 +59,21 @@ services:
         condition: service_healthy
   
   # maybe kafdrop replacement
-  blazingkraft:
-    container_name: blazingkraft
-    image: blazinginstruments/blazingkraft:latest
-    environment:
-       - BLAZINGKRAFT_ADMIN_EMAIL=admin
-       - BLAZINGKRAFT_ADMIN_PASSWORD=admin
-    # volumes:
-      # - ./blazingkraft_volume:/var/blazingkraft
-    ports:
-      - 7766:7766
-    depends_on:
-      kafka:
-        condition: service_healthy
-  
+  # blazingkraft:
+  #   container_name: blazingkraft
+  #   image: blazinginstruments/blazingkraft:latest
+  #   environment:
+  #      - BLAZINGKRAFT_ADMIN_EMAIL=admin
+  #      - BLAZINGKRAFT_ADMIN_PASSWORD=admin
+  #   # volumes:
+  #     # - ./blazingkraft_volume:/var/blazingkraft
+  #   ports:
+  #     - 7766:7766
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #   networks:
+  #     - botdetector-network
   scraper_highscore:
     image: bot_detector/scraper_highscore
     container_name: scraper_highscore
@@ -116,5 +117,6 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+
 networks:
   botdetector-network:
