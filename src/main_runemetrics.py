@@ -13,6 +13,7 @@ from modules import _kafka
 from modules.api.webshare_api import Webshare
 from modules.scraper import RuneMetricsScraper, Scraper
 from modules.validation.player import Player
+from utils.http_exception_handler import InvalidResponse
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ async def scrape(
     try:
         player = Player(**player)
         player = await scraper.lookup(player=player, session=session)
-    except Exception as error:
+    except (Exception, InvalidResponse) as error:
         error_type = type(error)
         logger.error(
             {
@@ -55,7 +56,7 @@ async def scrape(
             }
         )
         tb_str = traceback.format_exc()
-        logger.error(f"{error}, \n{tb_str}")
+        logger.debug(f"{tb_str}")
     return player, error
 
 
@@ -161,7 +162,6 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        loop = asyncio.get_running_loop()
-        loop.run_until_complete(main())
-    except RuntimeError:
         asyncio.run(main())
+    except RuntimeError as e:
+        logger.error(f"RuntimeError: {e}")

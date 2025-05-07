@@ -58,9 +58,7 @@ class HighscoreApi:
             return None
 
         basic_error = (
-            f"status code {status}.\n"
-            f"URL: {response.url}\n"
-            f"Header: {response.headers}\n"
+            f"status code {status}.\nURL: {response.url}\nHeader: {response.headers}\n"
         )
 
         match status:
@@ -80,8 +78,8 @@ class HighscoreApi:
             case s if 500 <= s < 600:
                 body = await response.text()
                 logger.warning(basic_error)
-                if s not in [503]:
-                    logger.warning(f"Body:\n{body}\n")
+                if s not in [502, 503, 504]:
+                    logger.warning(basic_error, f"Body: {body}")
                 await asyncio.sleep(5)
             case 403:
                 logger.warning(status)
