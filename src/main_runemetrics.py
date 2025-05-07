@@ -45,18 +45,30 @@ async def scrape(
     try:
         player = Player(**player)
         player = await scraper.lookup(player=player, session=session)
-    except (Exception, InvalidResponse) as error:
-        error_type = type(error)
-        logger.error(
-            {
-                "name": scraper.worker_name,
-                "error_type": error_type.__name__,
-                "error": error,
-                "player_name": player.get("name"),
-            }
-        )
+        return player, None
+    except InvalidResponse as err:
+        error_type = type(err)
+        error = {
+            "name": scraper.worker_name,
+            "error_type": error_type.__name__,
+            "error": err,
+            "player_name": player.get("name"),
+        }
+        logger.error(error)
+    except Exception as err:
+        err_id = str(uuid.uuid4())[-8:]
+        error_type = type(err)
+        error = {
+            "id": err_id,
+            "name": scraper.worker_name,
+            "error_type": error_type.__name__,
+            "error": err,
+            "player_name": player.get("name"),
+        }
+
+        logger.error(error)
         tb_str = traceback.format_exc()
-        logger.debug(f"{tb_str}")
+        logger.warning(f"{err_id=}\n{tb_str}")
     return player, error
 
 
