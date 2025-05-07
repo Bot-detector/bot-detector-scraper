@@ -61,7 +61,7 @@ async def scrape(
                 "name": scraper.worker_name,
                 "error_type": error_type.__name__,
                 "error": error,
-                "player_name": player,
+                "player_name": player.get("name"),
             }
         )
         tb_str = traceback.format_exc()

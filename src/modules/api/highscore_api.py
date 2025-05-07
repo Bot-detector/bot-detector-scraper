@@ -93,7 +93,7 @@ class HighscoreApi:
                     f"Header: {response.headers}\n"
                     f"Body: {body}"
                 )
-        raise InvalidResponse()
+        raise InvalidResponse(f"Unhandled status code {status}")
 
     def _parse_hiscore_name(self, name: str) -> str:
         name = name.lower()
