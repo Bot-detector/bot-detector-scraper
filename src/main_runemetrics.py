@@ -45,7 +45,6 @@ async def scrape(
     try:
         player = Player(**player)
         player = await scraper.lookup(player=player, session=session)
-        return player, None
     except InvalidResponse as err:
         error_type = type(err)
         error = {
