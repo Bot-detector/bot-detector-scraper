@@ -63,7 +63,7 @@ async def scrape(
             "error": err,
             "player_name": player.get("name"),
         }
-        logger.error(error)
+        logger.error(f"{error=}")
     except Exception as err:
         err_id = str(uuid.uuid4())[-8:]
         error_type = type(err)
@@ -75,7 +75,7 @@ async def scrape(
             "player_name": player.get("name"),
         }
 
-        logger.error(error)
+        logger.error(f"{error=}")
         tb_str = traceback.format_exc()
         logger.warning(f"{err_id=}\n{tb_str}")
     return player, highscore, error
